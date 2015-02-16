@@ -13,6 +13,9 @@
 #include <QByteArray>
 
 struct FileInfo{
+    FileInfo(){
+        FileSize = 0;
+    }
     //name ( для многофайловых торрентфайлов path )
     QString             FilePath;
     //length размер файла в байтах
@@ -46,7 +49,7 @@ public:
 
 //// Static
 public:
-    static TorrentFileInfo parse();
+    static QSharedPointer<TorrentFileInfo> parse(const QString &path);
 
 private:
 
@@ -54,8 +57,6 @@ private:
     //Для однофайловых не используется
     QString                 m_RootDirName;
     QList< FileInfo >       m_FilesInfo;
-
-    friend class TorrentFileParser;
 };
 
 #endif // TORRENTFILEINFO_H

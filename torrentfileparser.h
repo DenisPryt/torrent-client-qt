@@ -11,23 +11,25 @@
 typedef QHash<QByteArray,QVariant> BencodeHash;
 Q_DECLARE_METATYPE(BencodeHash)
 
-QT_FORWARD_DECLARE_CLASS( TorrentFileInfo )
-
 class TorrentFileParser
 {
 public:
-    TorrentFileParser(){}
+    TorrentFileParser();
     ~TorrentFileParser(){}
 
-    QSharedPointer< TorrentFileInfo > parse(const QByteArray &data );
+    QSharedPointer< BencodeHash > parse(const QByteArray &data );
+    void clear();
 
 private:
-    bool parseString( QByteArray &byteString );
-    bool parseNumber( qint64 &number );
-    bool parseList( QList< QVariant > &list );
-    bool parseHash( QHash< QByteArray, QVariant > &hash );
+    bool    parseString( QByteArray &byteString );
+    bool    parseNumber( qint64 &number );
+    bool    parseList(QList< QVariant > &resList );
+    bool    parseHash(QHash< QByteArray, QVariant > &resHash );
 
-    bool parseStringLength( int &length );
+    bool    parseStringLength( int &length );
+    QChar   currentCharacter() const;
+    QChar   nextCharacter() const;
+    bool    endOfData() const;
 
 //// Data
 private:
