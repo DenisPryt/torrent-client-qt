@@ -12,19 +12,30 @@ void TorrentFileParser::clear()
     m_lengthOfInfo = 0;
 }
 
-TorrentFileParser::TorrentFileParser()
+QByteArray TorrentFileParser::GetInfoArray() const
+{
+    if ( m_lengthOfInfo <= 0 ){
+        qWarning() << Q_FUNC_INFO;
+        return QByteArray();
+    }
+    return m_bencodeData.mid( m_infoStartPos, m_lengthOfInfo );
+}
+
+BencodeHash TorrentFileParser::GetBencodeHash() const
+{
+    return m_hashRes;
+}
+
+TorrentFileParser::TorrentFileParser( QObject *parent )
+    : QObject( parent )
 {
     clear();
 }
 
-QSharedPointer< BencodeHash > TorrentFileParser::parse(const QByteArray &data)
+bool TorrentFileParser::parse(const QByteArray &data)
 {
     m_bencodeData = data;
-    QSharedPointer< BencodeHash > infoHash( new BencodeHash );
-    if ( !parseHash( *infoHash ) ){
-        qWarning() << "Error";
-    }
-    return infoHash;
+    return parseHash( m_hashRes );
 }
 
 bool TorrentFileParser::parseStringLength(int &len)
@@ -45,7 +56,7 @@ bool TorrentFileParser::parseStringLength(int &len)
             return bOk;
         }
         else{
-            m_lastErrorString = QString("Error at %1 position").arg(m_nextPos);
+            emitError( QStringLiteral("Error in string length") );
             return false;
         }
     }
@@ -60,8 +71,8 @@ bool TorrentFileParser::parseString(QByteArray &byteString)
         return false;
 
     if ( m_nextPos + strLen > m_bencodeData.size() ){
-        qWarning() << "Incorrect string length TorrentFileParser::parseString ";
-        m_lastErrorString = QStringLiteral( ".torrent file is not valid. Incorrect string length." );
+        qWarning() << "Incorrect string length" << Q_FUNC_INFO;
+        emitError( QStringLiteral( ".torrent file is not valid. Incorrect string length." ) );
         return false;
     }
 
@@ -92,7 +103,7 @@ bool TorrentFileParser::parseNumber(qint64 &number)
     do{
         if ( currentCharacter() == 'e' ){
             if ( numberString.isEmpty() ){
-                m_lastErrorString = QStringLiteral( "No number between tag \'i\' and \'e\''" );
+                emitError( QStringLiteral( "No number between tag \'i\' and \'e\''" ) );
                 return false;
             }
             ++m_nextPos;
@@ -105,12 +116,13 @@ bool TorrentFileParser::parseNumber(qint64 &number)
             ++m_nextPos;
         }
         else{
-            m_lastErrorString = QStringLiteral( "Invalid character after tag \'i\'" );
+            emitError( QStringLiteral( "Invalid character after tag \'i\'" ) );
             return false;
         }
     }while( !endOfData() );
 
-    m_lastErrorString = QStringLiteral( "Not fount tag \'e\' after tag \'i\'" );
+    emitError( QStringLiteral( "Not fount tag \'e\' after tag \'i\'" ) );
+    return false;
 }
 
 bool TorrentFileParser::parseList(QList< QVariant > &resList)
@@ -141,12 +153,13 @@ bool TorrentFileParser::parseList(QList< QVariant > &resList)
         else if ( parseHash(hash) )
             resList << QVariant::fromValue<QHash<QByteArray, QVariant> >( hash );
         else{
-            m_lastErrorString = QString("Error at %1 position").arg(m_nextPos);
+            emitError( QStringLiteral( "Uncnown character" ) );
+            return false;
         }
 
     }while( !endOfData() );
 
-    m_lastErrorString = QStringLiteral( "Tag \'e\' is not found" );
+    emitError( QStringLiteral( "Tag \'e\' is not found" ) );
     return false;
 }
 
@@ -168,8 +181,9 @@ bool TorrentFileParser::parseHash(QHash< QByteArray, QVariant > &resHash)
         if ( !parseString( key ) )
             break;
 
-        if ( key == "info" )
+        if ( key == "info" ){
             m_infoStartPos = m_nextPos;
+        }
 
         qint64 number;
         QByteArray string;
@@ -185,7 +199,7 @@ bool TorrentFileParser::parseHash(QHash< QByteArray, QVariant > &resHash)
         else if ( parseHash(hash) )
             resHash.insert( key, QVariant::fromValue<QHash<QByteArray, QVariant> >(hash) );
         else {
-            m_lastErrorString = QString("Error at %1 position").arg(m_nextPos);
+            emitError( QStringLiteral("Unknown character") );
             return false;
         }
 
@@ -195,14 +209,14 @@ bool TorrentFileParser::parseHash(QHash< QByteArray, QVariant > &resHash)
 
     } while ( !endOfData() );
 
-    m_lastErrorString = QStringLiteral( "Tag \'e\' is not found" );
+    emitError( QStringLiteral( "Tag \'e\' is not found" ) );
     return false;
 }
 
 QChar TorrentFileParser::currentCharacter() const
 {
     if ( m_nextPos < 0 || m_nextPos >= m_bencodeData.size() ){
-        qWarning() << "Index out of range TorrentFileParser::currentCharacter";
+        qWarning() << "Index out of range" << Q_FUNC_INFO;
         return QChar();
     }
     return m_bencodeData.at( m_nextPos );
@@ -211,7 +225,7 @@ QChar TorrentFileParser::currentCharacter() const
 QChar TorrentFileParser::nextCharacter() const
 {
     if ( m_nextPos < 0 || m_nextPos + 1 >= m_bencodeData.size() ){
-        qWarning() << "Index out of range TorrentFileParser::nextCharacter";
+        qWarning() << "Index out of range" << Q_FUNC_INFO;
         return QChar();
     }
     return m_bencodeData.at( m_nextPos + 1 );
@@ -220,5 +234,11 @@ QChar TorrentFileParser::nextCharacter() const
 bool TorrentFileParser::endOfData() const
 {
     return m_nextPos >= m_bencodeData.size() ;
+}
+
+void TorrentFileParser::emitError(const QString &errorString)
+{
+    m_lastErrorString = errorString + QString(" at %1 position").arg( m_nextPos );
+    emit error( m_lastErrorString );
 }
 

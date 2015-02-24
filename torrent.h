@@ -3,6 +3,20 @@
 
 #include <QObject>
 
+class DownloadingInfo{
+public:
+    void clear();
+    DownloadingInfo(){ clear(); }
+
+    qint64      Downloaded;
+    qint64      Left;
+    qint64      Uploaded;
+
+    qint32      NumWant;
+    qint32      Key;
+};
+
+
 class Torrent : public QObject
 {
     Q_OBJECT

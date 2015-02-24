@@ -28,17 +28,19 @@ class TorrentFileInfo : public QObject
 {
     Q_OBJECT
 public:
-    TorrentFileInfo( QObject *parent = nullptr ) : QObject(parent){  }
+    TorrentFileInfo( QObject *parent = nullptr ) : QObject(parent){ clear(); }
     ~TorrentFileInfo(){}
+    void clear();
 
 //// Simple Properties
-    PROP( QList< QUrl >,    TrackerUrlList )    //announce + announce-list
-    PROP( QDateTime,        CreationDate )      //creation date Дата создания торрента
-    PROP( QString,          CreatedBy )         //created by    Имя и версия программы, которая использовалась для создания torrent-файла
-    PROP( QString,          Comment )           //comment       Текстовый комментарий в свободной форме от автора
-    PROP( quint64,          PieceLength )       //piece length  Размер каждого куска в байтах
-    PROP( QList< QByteArray >, Pieces )         //pieces Строка, составленная объединением 20-байтовых значений SHA1-хэшей каждого куска (один кусок — один хэш)
-    PROP( bool,             isPeersFromTrackersOnly )//private
+    PROP_GET( QList< QUrl >,    TrackerUrlList)    //announce + announce-list
+    PROP_GET( QDateTime,        CreationDate)    //creation date Дата создания торрента
+    PROP_GET( QString,          CreatedBy )     //created by    Имя и версия программы, которая использовалась для создания torrent-файла
+    PROP_GET( QString,          Comment )       //comment       Текстовый комментарий в свободной форме от автора
+    PROP_GET( quint64,          PieceLength )   //piece length  Размер каждого куска в байтах
+    PROP_GET( QList< QByteArray >, Pieces )     //pieces Строка, составленная объединением 20-байтовых значений SHA1-хэшей каждого куска (один кусок — один хэш)
+    PROP_GET( bool,             IsPeersFromTrackersOnly )//private
+    PROP_GET( QByteArray,       InfoHashSHA1 )    //SHA1 хэшсумма блока info
 
 public:
     const QUrl              GetTrackerUrl() const{ return m_TrackerUrlList[0]; }
@@ -47,9 +49,14 @@ public:
     FileInfo&               GetFileInfo( uint pos );
     const FileInfo&         GetFileInfo( uint pos ) const;
 
+    FileInfo&               GetFileInfo();
+    const FileInfo&         GetFileInfo() const;
+
+    const quint64           GetTotalFilesSize() const;
+
 //// Static
 public:
-    static QSharedPointer<TorrentFileInfo> parse(const QString &path);
+    static QSharedPointer<TorrentFileInfo> parse(const QByteArray &fileContent);
 
 private:
 

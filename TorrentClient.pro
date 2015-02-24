@@ -6,7 +6,13 @@ QT += qml quick widgets network
 
 SOURCES += main.cpp \
     torrentfileinfo.cpp \
-    torrentfileparser.cpp
+    torrentfileparser.cpp \
+    requesttoservermanager.cpp \
+    peerinfo.cpp \
+    torrentclient.cpp \
+    clienidgenerators.cpp \
+    peerconnection.cpp \
+    torrent.cpp
 
 RESOURCES += qml.qrc
 
@@ -19,4 +25,10 @@ include(deployment.pri)
 HEADERS += \
     torrentfileinfo.h \
     torrentfileparser.h \
-    macro.h
+    macro.h \
+    requesttoservermanager.h \
+    peerinfo.h \
+    torrentclient.h \
+    clienidgenerators.h \
+    peerconnection.h \
+    torrent.h

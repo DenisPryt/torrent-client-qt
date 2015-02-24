@@ -11,14 +11,18 @@
 typedef QHash<QByteArray,QVariant> BencodeHash;
 Q_DECLARE_METATYPE(BencodeHash)
 
-class TorrentFileParser
+class TorrentFileParser : public QObject
 {
+    Q_OBJECT
 public:
-    TorrentFileParser();
+    TorrentFileParser(QObject *parent = nullptr);
     ~TorrentFileParser(){}
 
-    QSharedPointer< BencodeHash > parse(const QByteArray &data );
+    bool parse(const QByteArray &data );
     void clear();
+
+    QByteArray GetInfoArray() const;
+    BencodeHash GetBencodeHash() const;
 
 private:
     bool    parseString( QByteArray &byteString );
@@ -31,8 +35,16 @@ private:
     QChar   nextCharacter() const;
     bool    endOfData() const;
 
+protected:
+    void emitError( const QString &errorString );
+
+signals:
+    void error( const QString &errorString );
+
 //// Data
 private:
+    BencodeHash         m_hashRes;
+
     QByteArray          m_bencodeData;
     qint64              m_nextPos;
 
