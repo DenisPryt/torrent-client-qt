@@ -2,25 +2,18 @@
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQuickWindow>
-#include <QDebug>
-#include <QFile>
 
-#include "torrentfileinfo.h"
-#include "requesttoservermanager.h"
-#include "torrentclient.h"
-#include "torrent.h"
+#include "mywindow.h"
+
+
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
-    QFile file( "D:\\test.torrent" );
-    if ( !file.open( QFile::ReadOnly ) ){
-        return 0;
-    }
 
-    RequestToServerManager requestManager( new TorrentClient(&app) );
-    requestManager.GetPeers( TorrentFileInfo::parse( file.readAll() ), QSharedPointer<DownloadingInfo>(new DownloadingInfo) );
+    MyWindow wnd;
+    wnd.show();
 
 //    QQmlEngine engine;
 //    QQmlComponent component(&engine);

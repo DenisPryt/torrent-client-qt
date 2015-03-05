@@ -22,12 +22,12 @@
     public : GETTER(varType, varName)
 
 #define PROP_ALL(varType, varName) PROP_GET(varType, varName) \
-    public : SETTER_ABOUT(varType, varName)\
+    public slots: SETTER_ABOUT(varType, varName)\
 
 #define PROP_SIMPLE(varType, varName) PROP_GET(varType, varName) \
-    public : SETTER_SIMPLE(varType, varName)
+    public slots: SETTER_SIMPLE(varType, varName)
 
 #define PROP_GET_SET(varType, varName) PROP_GET(varType, varName) \
-    public : SETTER(varType, varName)
+    public slots: SETTER(varType, varName)
 
 #endif // MACRO

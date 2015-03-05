@@ -5,37 +5,33 @@
 #include <QObject>
 #include <QHostAddress>
 #include <QBitArray>
+#include <QHash>
 
-class PeerInfo : public QObject
+class PeerInfo
 {
-    Q_OBJECT
 public:
-    explicit PeerInfo(QObject *parent = 0) : QObject(parent){ clear(); }
+    PeerInfo(){ clear(); }
+    PeerInfo( const QHostAddress &address, quint16 port )
+        : m_Address(address), m_Port(port)
+        {}
     ~PeerInfo(){}
-
     void clear();
 
     //// Getters only properties
     PROP_GET( QHostAddress, Address )
     PROP_GET( quint16,      Port )
-    PROP_GET( QString,      Id)
-    PROP_GET( bool,         Intesting )
-    PROP_GET( bool,         Seed)
-    PROP_GET( uint,         LastVisited )
-    PROP_GET( uint,         ConnectStart )
-    PROP_GET( uint,         ConnectTime )
-    PROP_GET( QBitArray,    Pieces)
-    PROP_GET( int,          NumCompletedPieces )
+    PROP_GET( QString,      Id )
 
 public:
-    inline bool operator==(const PeerInfo &other)
-    {
-        return m_Port == other.m_Port && m_Address == other.m_Address && m_Id == other.m_Id;
+    friend inline bool operator==(const PeerInfo &l, const PeerInfo &r){
+        return  l.m_Port        == r.m_Port &&
+                l.m_Address     == r.m_Address &&
+                l.m_Id          == r.m_Id;
     }
-
-signals:
-
-public slots:
 };
+
+inline uint qHash( const PeerInfo &peerInfo ){
+    return qHash( peerInfo.GetAddress() ) ^ qHash( peerInfo.GetPort() );
+}
 
 #endif // PEERINFO_H

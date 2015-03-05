@@ -27,26 +27,29 @@ RequestToServerManager::~RequestToServerManager()
 {
 }
 
-void RequestToServerManager::GetPeers(QSharedPointer< TorrentFileInfo > torFileInfo, QSharedPointer< DownloadingInfo > downlInfo)
+QSet< PeerInfo > RequestToServerManager::GetPeers(QSharedPointer< Torrent > torrent, qint32 peersCount /*= -1*/)
 {
-    if ( torFileInfo.isNull() ){
-        qWarning() << Q_FUNC_INFO << "torFileInfo is null";
-        return;
+    m_fetchedPeers.clear();
+    if ( torrent.isNull() ){
+        qCritical() << Q_FUNC_INFO << "torFileInfo is null";
+        return m_fetchedPeers;
     }
-    if ( downlInfo.isNull() ){
-        qWarning() << Q_FUNC_INFO << "downlInfo is null";
-        return;
+    if ( peersCount < -1 ){
+        qWarning() << Q_FUNC_INFO << "peersCount < -1";
+        peersCount = -1;
     }
 
-    m_torrentFleInfo = torFileInfo;
-    m_downloadingInfo = downlInfo;
+    m_wantPeersCount = peersCount;
+    m_torrent = torrent;
+    auto torFleInfo = m_torrent->GetTorrentFileInfo();
 
-
-    //connect( &m_udpSocket, &QAbstractSocket::connected, this, &RequestToServerManager::sendLastActionRequest );
     connect( &m_udpSocket, &QIODevice::readyRead, this, &RequestToServerManager::responseHandler );
-    m_udpSocket.connectToHost( torFileInfo->GetTrackerUrl().host(), torFileInfo->GetTrackerUrl().port(),
+    m_udpSocket.connectToHost( torFleInfo->GetTrackerUrl().host(), torFleInfo->GetTrackerUrl().port(),
                                QIODevice::ReadWrite, QUdpSocket::IPv4Protocol );
-    m_udpSocket.waitForConnected();
+    if ( !m_udpSocket.waitForConnected() ){
+        qCritical() << "Connetced failed!!!";
+        return m_fetchedPeers;
+    }
 
     int requestsAmount = 0;
     do{
@@ -54,6 +57,7 @@ void RequestToServerManager::GetPeers(QSharedPointer< TorrentFileInfo > torFileI
         connectRequest();
         if ( requestsAmount > 4 ){
             qCritical() << "SERVER DO NOT RESPONSE";
+            return m_fetchedPeers;
         }
     }while( !m_udpSocket.waitForReadyRead(5000) );
 
@@ -64,9 +68,11 @@ void RequestToServerManager::GetPeers(QSharedPointer< TorrentFileInfo > torFileI
         announceRequest();
         if ( requestsAmount > 4 ){
             qCritical() << "SERVER DO NOT RESPONSE";
+            return m_fetchedPeers;
         }
     }while( !m_udpSocket.waitForReadyRead(5000) );
 
+    return m_fetchedPeers;
     /*
     auto infoHash = QUrl( torrentInfoPtr->GetInfoHashSHA1() ).toEncoded(QUrl::FullyEncoded);
     qDebug() << "info hash : " <<  infoHash;
@@ -125,10 +131,12 @@ void RequestToServerManager::connectRequest()
 
 void RequestToServerManager::announceRequest()
 {
+    auto torFileInfo = m_torrent->GetTorrentFileInfo();
+
     m_lastAction = ActionAnnounce;
     m_transactionId = QDateTime::currentDateTime().toTime_t();
 
-    auto &infoHash = m_torrentFleInfo->GetInfoHashSHA1();
+    auto &infoHash = torFileInfo->GetInfoHashSHA1();
     if ( infoHash.size() != 20 ){
         qWarning() << Q_FUNC_INFO << "INVALIS INFOHASH";
     }
@@ -140,21 +148,21 @@ void RequestToServerManager::announceRequest()
 
     qint32 event = 2;
     qint32 key = 0;
-    auto &downlInf = *m_downloadingInfo;
+    auto downlInf = m_torrent->GetTorrentDownloadInfo();
     QByteArray messege;
     QDataStream out( &messege, QIODevice::WriteOnly );
     out << qint64( m_connectionId ) << qint32( m_lastAction ) << qint32( m_transactionId );
     QByteArray messegeEnd;
     QDataStream out2( &messegeEnd, QIODevice::WriteOnly );
-    out2<< qint64( downlInf.Downloaded ) << qint64( downlInf.Left )
-        << qint64( downlInf.Uploaded ) << qint32( event ) << qint32(m_torrentClient->GetIpAddress().toIPv4Address())
-        << qint32( key ) << qint32( downlInf.NumWant ) << qint16( m_torrentClient->GetPort() );
+    out2<< qint64( downlInf->Downloaded ) << qint64( downlInf->Left )
+        << qint64( downlInf->Uploaded ) << qint32( event ) << qint32(m_torrentClient->GetIpAddress().toIPv4Address())
+        << qint32( key ) << qint32( m_wantPeersCount ) << qint16( m_torrentClient->GetPort() );
 
     qDebug() << "ANNOUNCE REQUEST IS :" << qint64( m_connectionId ) << qint32( m_lastAction )
-             << qint32( m_transactionId ) << infoHash << clientId << qint64( downlInf.Downloaded )
-             << qint64( downlInf.Left ) << qint64( downlInf.Uploaded )
+             << qint32( m_transactionId ) << infoHash << clientId << qint64( downlInf->Downloaded )
+             << qint64( downlInf->Left ) << qint64( downlInf->Uploaded )
              << qint32( event ) << qint32( 0 )
-             << qint32( key ) << qint32( downlInf.NumWant ) << qint16( m_torrentClient->GetPort() );
+             << qint32( key ) << qint32( m_wantPeersCount ) << qint16( m_torrentClient->GetPort() );
 
     messege.append( infoHash ).append( clientId ).append(messegeEnd);
     qDebug() << "ANNOUNCE REQUEST SIZE : " << m_udpSocket.write( messege );
@@ -255,9 +263,9 @@ void RequestToServerManager::announceResponseHandler()
     int i = 0;
     while ( !in.atEnd() ){
         in >> ipAddress >> tcpPort;
+        m_fetchedPeers.insert( PeerInfo( QHostAddress(ipAddress), tcpPort ) );
         qDebug() << QHostAddress(ipAddress).toString() << tcpPort << ++i;
     }
-
 }
 
 void RequestToServerManager::scrapeResponseHandler()

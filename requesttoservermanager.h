@@ -5,14 +5,12 @@
 #include <QSharedPointer>
 #include <QByteArray>
 #include <QUdpSocket>
-#include <QMutex>
-#include <QMutexLocker>
+#include <QSet>
 
 #include "torrentfileinfo.h"
 #include "torrent.h"
+#include "peerinfo.h"
 
-class QNetworkReply;
-class QNetworkAccessManager;
 class TorrentClient;
 
 class RequestToServerManager : public QObject
@@ -22,7 +20,7 @@ public:
     explicit RequestToServerManager(TorrentClient *torClient, QObject *parent = 0);
     ~RequestToServerManager();
 
-    void GetPeers(QSharedPointer< TorrentFileInfo > torFileInfo, QSharedPointer< DownloadingInfo > downlInfo);
+    QSet< PeerInfo > GetPeers(QSharedPointer< Torrent > torrent, qint32 peersCount = -1 );
 
 signals:
 
@@ -51,8 +49,7 @@ private:
     ActionTypes             m_lastAction;
 
     QUdpSocket              m_udpSocket;
-    QSharedPointer< TorrentFileInfo > m_torrentFleInfo;
-    QSharedPointer< DownloadingInfo > m_downloadingInfo;
+    QSharedPointer< Torrent > m_torrent;
 
     qint32                  m_transactionId;
     qint64                  m_connectionId;
@@ -60,7 +57,10 @@ private:
     QByteArray              m_response;
     TorrentClient          *m_torrentClient;
 
+    qint32                  m_wantPeersCount;
     uint                    m_requestsAmount;        // После каждого успешного действия сбрасывается
+
+    QSet< PeerInfo >        m_fetchedPeers;
 };
 
 #endif // REQUESTTOSERVERMANAGER_H
