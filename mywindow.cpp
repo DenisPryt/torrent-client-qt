@@ -1,4 +1,5 @@
 #include "mywindow.h"
+#include <QMessageBox>
 
 MyWindow::MyWindow(QWidget *parent) : QWidget(parent)
 {
@@ -13,32 +14,17 @@ MyWindow::MyWindow(QWidget *parent) : QWidget(parent)
 
     connect( btn, &QPushButton::released, [this](){
         long ind = m_spinBox->value();
-        PeerConnection peer( m_peers[ ind ], m_torrent.data(), m_client );
-        peer.makeHandshake();
+        PeerConnection *peer = new PeerConnection( m_torrent.data(), m_client );
 
-        if ( peer.waitForReadyRead(5000) )
-        {
-            quint8 pstrLen = -1;
-            auto msg = peer.readAll();
-            QDataStream stream( &msg, QIODevice::ReadOnly );
-            stream >> quint8( pstrLen );
-            QByteArray pstr          = msg.mid(1, pstrLen);
-            QByteArray reservedZeros = msg.mid(pstrLen + 1, 8);
-            QByteArray infoHash      = msg.mid( pstrLen + 9, 20 );
-            QByteArray peerId        = msg.mid( pstrLen + 29, 20 );
+        connect( peer, &PeerConnection::handshakeIsDone, [this](){
+            QMessageBox::information(this, "Correct handshake", "Correct handshake" );
+        } );
+        connect( peer, &PeerConnection::handshakeFailed, [this](){
+            QMessageBox::critical(this, "Invalid handshake", "Invalid handshake" );
+        } );
 
-            if ( pstrLen == 19 && pstr == "BitTorrent protocol" ){
-                if ( infoHash == m_torrent->GetTorrentFileInfo()->GetInfoHashSHA1() ){
-                    qDebug() << Q_FUNC_INFO << " Handshake is complited ";
-                }
-                else{
-                    qWarning() << Q_FUNC_INFO << " INCORRECT INFO_HASH ";
-                }
-            }
-            else {
-                qWarning() << Q_FUNC_INFO << " INCORRECT PROTOCOL";
-            }
-        }
+        peer->connectToPeer( m_peers[ ind ] );
+        peer->prepareHandshakeMsg();
     } );
 
     QFile file( "D:\\test.torrent" );

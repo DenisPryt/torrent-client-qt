@@ -13,7 +13,8 @@ SOURCES += main.cpp \
     clienidgenerators.cpp \
     peerconnection.cpp \
     torrent.cpp \
-    mywindow.cpp
+    mywindow.cpp \
+    torrentmodel.cpp
 
 RESOURCES += qml.qrc
 
@@ -33,4 +34,5 @@ HEADERS += \
     clienidgenerators.h \
     peerconnection.h \
     torrent.h \
-    mywindow.h
+    mywindow.h \
+    torrentmodel.h

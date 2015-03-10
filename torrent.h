@@ -34,8 +34,6 @@ signals:
 
 public slots:
 
-private:
-
 };
 
 #endif // TORRENT_H

@@ -136,12 +136,12 @@ void RequestToServerManager::announceRequest()
     m_lastAction = ActionAnnounce;
     m_transactionId = QDateTime::currentDateTime().toTime_t();
 
-    auto &infoHash = torFileInfo->GetInfoHashSHA1();
+    const auto &infoHash = torFileInfo->GetInfoHashSHA1();
     if ( infoHash.size() != 20 ){
         qWarning() << Q_FUNC_INFO << "INVALIS INFOHASH";
     }
 
-    auto &clientId = m_torrentClient->GetClientId();
+    const auto &clientId = m_torrentClient->GetClientId();
     if ( clientId.size() != 20 ){
         qWarning() << Q_FUNC_INFO << "INVALIS CLIENT ID";
     }

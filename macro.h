@@ -30,4 +30,8 @@
 #define PROP_GET_SET(varType, varName) PROP_GET(varType, varName) \
     public slots: SETTER(varType, varName)
 
+#define PROP_SIMPLE_(varType, varName) PROP_GET(varType, varName) \
+    public slots: SETTER_SIMPLE(varType, varName) \
+    signals: void varName##Changed( const varType &newVal );
+
 #endif // MACRO
