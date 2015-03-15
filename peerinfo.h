@@ -17,10 +17,10 @@ public:
     ~PeerInfo(){}
     void clear();
 
-    //// Getters only properties
-    PROP_GET( QHostAddress, Address )
-    PROP_GET( quint16,      Port )
-    PROP_GET( QString,      Id )
+    //// Properties
+    PROP_GET_SET( QHostAddress, Address )
+    PROP_GET_SET( quint16,      Port )
+    PROP_GET_SET( QString,      Id )
 
 public:
     friend inline bool operator==(const PeerInfo &l, const PeerInfo &r){

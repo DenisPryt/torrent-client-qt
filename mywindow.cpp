@@ -14,16 +14,21 @@ MyWindow::MyWindow(QWidget *parent) : QWidget(parent)
 
     connect( btn, &QPushButton::released, [this](){
         long ind = m_spinBox->value();
-        PeerConnection *peer = new PeerConnection( m_torrent.data(), m_client );
+        PeerConnection *peer = new PeerConnection( m_client );
 
         connect( peer, &PeerConnection::handshakeIsDone, [this](){
             QMessageBox::information(this, "Correct handshake", "Correct handshake" );
         } );
+        connect( peer, &PeerConnection::handshakeIsDone, peer, &PeerConnection::sendInterested );
+
         connect( peer, &PeerConnection::handshakeFailed, [this](){
             QMessageBox::critical(this, "Invalid handshake", "Invalid handshake" );
         } );
 
-        peer->connectToPeer( m_peers[ ind ] );
+        long long piecesSize = m_torrent->GetTorrentFileInfo()->GetPieces().size();
+        qDebug() << "piecesSize = " << piecesSize;
+        peer->connectToPeer( m_peers[ ind ], m_torrent->GetTorrentFileInfo()->GetInfoHashSHA1(),
+                             piecesSize );
         peer->prepareHandshakeMsg();
     } );
 

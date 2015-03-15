@@ -16,7 +16,7 @@
         emit varName##Changed( newValue ); \
     }
 
-#define GETTER(varType, varName) varType Get##varName() const { return m_##varName; }
+#define GETTER(varType, varName) const varType &Get##varName() const { return m_##varName; }
 
 #define PROP_GET(varType, varName) private : varType m_##varName; \
     public : GETTER(varType, varName)
