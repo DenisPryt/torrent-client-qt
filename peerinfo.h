@@ -24,9 +24,10 @@ public:
 
 public:
     friend inline bool operator==(const PeerInfo &l, const PeerInfo &r){
-        return  l.m_Port        == r.m_Port &&
-                l.m_Address     == r.m_Address &&
-                l.m_Id          == r.m_Id;
+        return  l.m_Port        == r.m_Port
+             && l.m_Address     == r.m_Address
+             //&& l.m_Id          == r.m_Id
+             ;
     }
 };
 

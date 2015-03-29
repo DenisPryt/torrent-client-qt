@@ -8,10 +8,13 @@
 #include <QTimerEvent>
 #include <QTimer>
 
-static const QByteArray HANDSHAKE_PSTR = "BitTorrent protocol";
-static const int HANDSHAKE_PSTRLEN     = HANDSHAKE_PSTR.size();
-static const quint32 STANDART_HANDSHAKE_TIMEOUT = 1000 * 5;     // 5 sec
-static const quint32 STANDART_KEEPALIVE_TIMEOUT = 1000 * 60 * 3;// 3 min
+static const QByteArray HANDSHAKE_PSTR    = "BitTorrent protocol";
+static const int        HANDSHAKE_PSTRLEN = HANDSHAKE_PSTR.size();
+static const quint32    STANDART_HANDSHAKE_TIMEOUT = 1000 * 5;      // 5 sec
+static const quint32    STANDART_KEEPALIVE_TIMEOUT = 1000 * 60 * 3; // 3 min
+static const uint       STANDART_SPEEDTEST_TIMEOUT = 1000 * 3;      // 3 sec
+static const uint       STANDART_BYTES_SPEED_SIZE  = 8;
+static const uint       STANDART_PIECE_SIZE        = 16384;         // 2^14
 
 PeerConnection::PeerConnection( TorrentClient *torrentClient, QObject *parent )
     : QTcpSocket( parent )
@@ -19,6 +22,7 @@ PeerConnection::PeerConnection( TorrentClient *torrentClient, QObject *parent )
     , m_timerHandhsake( nullptr )
     , m_timerKeepAlive( nullptr )
     , m_timerMyKeepAlive( nullptr )
+    , m_timerSpeedTest( nullptr )
 {
     Q_ASSERT( torrentClient != nullptr );
 
@@ -26,7 +30,7 @@ PeerConnection::PeerConnection( TorrentClient *torrentClient, QObject *parent )
 
     initTimer( m_timerHandhsake, STANDART_HANDSHAKE_TIMEOUT, [this](){
         m_timerHandhsake->stop();
-        qWarning() << "HANDSHAKE TIMEOUT";
+        //qWarning() << "HANDSHAKE TIMEOUT";
         disconnectFromHost();
         emit handshakeFailed();
     } );
@@ -42,22 +46,22 @@ PeerConnection::PeerConnection( TorrentClient *torrentClient, QObject *parent )
         sendKeepAlive();
     } );
 
+    initTimer( m_timerSpeedTest, STANDART_SPEEDTEST_TIMEOUT, [this](){
+        qDebug() << "Speed test timeout";
+        timerSpeedTestHandler();
+    } );
+
     connect( this, &QAbstractSocket::readyRead, this, &PeerConnection::responseHandler );
 
     connect( this, &PeerConnection::handshakeIsDone, m_timerHandhsake, &QTimer::stop );
-
+/*
     connect( this, &PeerConnection::stateChanged, [this]( QAbstractSocket::SocketState state ){
         qDebug() << state;
     } );
-
+*/
     connect( this, &PeerConnection::connected, [this](){
         qDebug() << write( m_outgoingBuffer );
         m_handshakeSended = true;
-    } );
-
-    connect( this, &PeerConnection::IsPeerChokingChanged, this, [this]( bool isPeerChoking ){
-        qDebug() << "\t\tisPeerChokingChanged to " << isPeerChoking;
-        sendRequest(1, 1, 4096);
     } );
 }
 
@@ -82,15 +86,24 @@ void PeerConnection::clear()
     m_handshakeHandled = false;
     m_handshakeSended = false;
 
-    clearTimer( m_timerHandhsake, STANDART_HANDSHAKE_TIMEOUT );
-    clearTimer( m_timerKeepAlive, STANDART_KEEPALIVE_TIMEOUT );
+    clearTimer( m_timerHandhsake,   STANDART_HANDSHAKE_TIMEOUT );
+    clearTimer( m_timerKeepAlive,   STANDART_KEEPALIVE_TIMEOUT );
     clearTimer( m_timerMyKeepAlive, STANDART_KEEPALIVE_TIMEOUT );
+    clearTimer( m_timerSpeedTest,   STANDART_SPEEDTEST_TIMEOUT );
 
     m_peerRequestedBlocks.clear();
     m_amRequestedBlocks.clear();
     m_downloadedBlocks.clear();
     m_peerPieces.clear();
     m_downloadedPieces.clear();
+
+    m_bytesSpeedSize = STANDART_BYTES_SPEED_SIZE;
+    m_bytesDownloadedList.clear();
+    m_bytesUploadedList.clear();
+    m_bytesDownloaded = 0;
+    m_bytesUploaded = 0;
+
+    m_PieceSize = STANDART_PIECE_SIZE;
 }
 
 void PeerConnection::initTimer(QTimer *&timer, quint32 timeout, std::function< void(void) > timeoutHandler )
@@ -125,12 +138,42 @@ void PeerConnection::SetTimeout(quint32 &timeoutVar, QTimer *timerVar, quint32 n
         timerVar->start();
 }
 
+void PeerConnection::timerSpeedTestHandler()
+{
+    timerSpeedTestHandler( m_bytesDownloaded, m_bytesDownloadedList );
+    timerSpeedTestHandler( m_bytesUploaded, m_bytesUploadedList );
+}
+
+void PeerConnection::timerSpeedTestHandler(quint64 &bytes, QLinkedList<quint64> &list)
+{
+    list.append( bytes );
+    if ( list.size() > m_bytesSpeedSize ){
+        list.pop_front();
+    }
+}
+
+quint64 PeerConnection::CalculateSpeed(const QLinkedList<quint64> &list) const
+{
+    quint64 sum = 0;
+    for ( auto bytes : list )
+        sum += bytes;
+
+    return sum / (list.size() * STANDART_SPEEDTEST_TIMEOUT);
+}
+
 PeerConnection::~PeerConnection()
 {
     m_timerHandhsake->stop();
     m_timerKeepAlive->stop();
+    m_timerSpeedTest->stop();
 }
 
+void PeerConnection::DownloadBlock(quint32 index, quint32 size)
+{
+    for (quint32 currentOffset = 0; currentOffset < size; currentOffset += m_PieceSize ){
+        sendRequest( index, currentOffset, m_PieceSize );
+    }
+}
 
 void PeerConnection::connectToPeer(const PeerInfo &peerInfo, const QByteArray &infoHash, quint32 pieceCount)
 {
@@ -226,10 +269,10 @@ void PeerConnection::sendRequest(quint32 index, quint32 begin, quint32 length)
 {
     qDebug() << Q_FUNC_INFO;
     m_amRequestedBlocks.insert( TorrentBlockDescriptor(index, begin, length) );
-    m_incomingBuffer.clear();
-    QDataStream in( &m_incomingBuffer, QIODevice::WriteOnly );
+    QByteArray msg;
+    QDataStream in( &msg, QIODevice::WriteOnly );
     in << qint32( 13 ) << qint8( PacketRequest ) << index << begin << length;
-    qDebug() << write( m_incomingBuffer );
+    qDebug() << write( msg );
 }
 
 void PeerConnection::sendKeepAlive()
@@ -245,7 +288,6 @@ void PeerConnection::bitFildHandler()
     if ( m_incomingBuffer.size() - 4 > len ){
         qWarning() << Q_FUNC_INFO << "m_incomingBuffer.size() > len";
         emit invalidPeer();
-        disconnectFromHost();
     }
 
     if ( m_incomingBuffer.size() - 4 < len ){
@@ -309,15 +351,16 @@ void PeerConnection::PieceHandler()
     quint32 index = 0, begin = 0;
     out >> index >> begin;
 
+    m_bytesDownloaded += m_incomingBuffer.size() - 13;
     // 13 = 4 + 1 + 4 + 4 : <len(4)><id(1)><index(4)><begin(4)><block(X)>
     TorrentBlockDescriptor blockDesc(index, begin, m_incomingBuffer.size() - 13);
     m_amRequestedBlocks.remove( blockDesc );
     m_downloadedBlocks.insert( blockDesc, m_incomingBuffer.mid(13) );
 
     qDebug() << m_incomingBuffer.size() - 13;
+
+    emit BlockDownloaded( index, begin, m_incomingBuffer.mid(13) );
 /*
-    // The peer sends a block.
-    emit blockReceived(index, begin, m_incomingBuffer.mid(13));
 
     // Kill the pending block timer.
     if (pendingRequestTimer) {
@@ -358,34 +401,43 @@ void PeerConnection::responseHandler()
         m_incomingBuffer += readAll();
         switch ( incomingPacetType() ) {
         case PacketKeepAlive:
-            m_timerKeepAlive->start();
+            //m_timerKeepAlive->start();
             break;
         case PacketChoke:
+            qDebug() << "PacketChoke";
             SetIsPeerChoking( true );
             break;
         case PacketUnchoke:
+            qDebug() << "PacketUnchoke";
             SetIsPeerChoking( false );
             break;
         case PacketInterested:
+            qDebug() << "PacketInterested";
             SetIsPeerInterested( true );
             break;
         case PacketNotInterested:
+            qDebug() << "PacketNotInterested";
             SetIsPeerInterested( false );
             break;
         case PacketHave:
-            m_peerPieces.setBit( m_incomingBuffer.mid( 5, 1 ).toULongLong() );
+            qDebug() << "PacketHave";
+            m_peerPieces.setBit( quint8(m_incomingBuffer[5]) );
             break;
         case PacketBitField:
+            qDebug() << "PacketBitField";
             bitFildHandler();
             break;
         case PacketRequest:
+            qDebug() << "PacketRequest";
             RequestHandler();
             break;
         case PacketPiece: {
+            qDebug() << "PacketPiece";
             PieceHandler();
             break;
         }
         case PacketCancel: {
+            qDebug() << "PacketCancel";
             CancelHandler();
             break;
         }
@@ -464,14 +516,8 @@ quint32 PeerConnection::incomingLen()
     if ( m_incomingBuffer.size() < 4 )
         return 0;
 
-    bool bOk = false;
-    qlonglong len = m_incomingBuffer.mid(0, 4).toLongLong( &bOk );
-
-    if ( !bOk ){
-        qWarning() << Q_FUNC_INFO << "m_incomingBuffer.mid(0, 4).toLongLong";
-        emit invalidPeer();
-        disconnectFromHost();
-    }
-
-    return len;
+    return (quint32(m_incomingBuffer[0]) << 24)
+        | (quint32(m_incomingBuffer[1]) << 16)
+        | (quint32(m_incomingBuffer[2]) << 8)
+        | (quint32(m_incomingBuffer[3]));
 }

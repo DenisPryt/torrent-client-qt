@@ -5,6 +5,7 @@
 #include <QTcpSocket>
 #include <functional>
 #include <QSet>
+#include <QLinkedList>
 
 #include "macro.h"
 #include "peerinfo.h"
@@ -64,13 +65,19 @@ public:
     PROP_GET( quint32,          KeepAliveTimeout )
     PROP_GET( quint32,          MyKeepAliveTimeout )
 
+    PROP_GET_SET( quint32,      PieceSize )
+
 public:
     void SetHandshakeTimeout( quint32 newTimeout ){SetTimeout( m_HandshakeTimeout, m_timerHandhsake, newTimeout );}
     void SetKeepAliveTimeout( quint32 newTimeout ){SetTimeout( m_KeepAliveTimeout, m_timerKeepAlive, newTimeout );}
     void SetMyKeepAliveTimeout( quint32 newTimeout ){SetTimeout( m_MyKeepAliveTimeout, m_timerMyKeepAlive, newTimeout );}
 
-    void PieceHandler();
-    void CancelHandler();
+    quint64 GetDownloadSpeed() const { return CalculateSpeed( m_bytesDownloadedList ); }
+    quint64 GetUploadSpeed() const   { return CalculateSpeed( m_bytesUploadedList ); }
+
+    void DownloadBlock(quint32 index , quint32 size);
+    quint32 Download( quint32 bytes );
+
 public slots:
     void connectToPeer(const PeerInfo &peerInfo , const QByteArray &infoHash, quint32 pieceCount);
     void peerConnectMe( qintptr socketDescriptor );
@@ -79,11 +86,24 @@ private:
     QTimer     *m_timerHandhsake;
     QTimer     *m_timerKeepAlive;
     QTimer     *m_timerMyKeepAlive;
+    QTimer     *m_timerSpeedTest;
 
     void        initTimer(QTimer *&timer, quint32 timeout, std::function< void(void) > timeoutHandler);
     void        clearTimer( QTimer *timer, quint32 timeout );
 
     void        SetTimeout(quint32 &timeoutVar, QTimer *timerVar, quint32 newTimeout);
+
+    //// Длинна списокв, хранящих кол-во скач/отд байт несколько обработок назад. Чем больше, тем сглаженнее скорость.
+    uint m_bytesSpeedSize;
+    //// Хранят количество скачанных/отданных байт несколько итераций назад
+    QLinkedList< quint64 >  m_bytesDownloadedList;
+    QLinkedList< quint64 >  m_bytesUploadedList;
+    //// Накапливают количество скач/отд байт
+    quint64                 m_bytesDownloaded;
+    quint64                 m_bytesUploaded;
+    void timerSpeedTestHandler();
+    void timerSpeedTestHandler(quint64 &bytes, QLinkedList< quint64 > &list);
+    quint64 CalculateSpeed(const QLinkedList<quint64> &list ) const;
 
     QSet< TorrentBlockDescriptor >              m_peerRequestedBlocks;
     QSet< TorrentBlockDescriptor >              m_amRequestedBlocks;
@@ -101,6 +121,7 @@ signals:
     void PeerPiecesChanged( const QBitArray &newVal );
     void NumCompletedPiecesChanged( int newVal );
     void PeerRequest( quint32 index, quint32 begin, quint32 length );
+    void BlockDownloaded( quint32 index, quint32 begin, const QByteArray &block );
 
     void handshakeIsDone();
     void handshakeFailed();
@@ -125,6 +146,8 @@ public slots:
     bool handshakeHandler();
     void bitFildHandler();
     void RequestHandler();
+    void PieceHandler();
+    void CancelHandler();
 
 private:
     QByteArray      m_outgoingBuffer;

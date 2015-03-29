@@ -15,6 +15,7 @@
 #include "torrentclient.h"
 #include "torrent.h"
 #include "peerconnection.h"
+#include "downloader.h"
 
 class MyWindow : public QWidget
 {
@@ -27,7 +28,8 @@ private:
     QList< PeerInfo > m_peers;
     QSharedPointer< Torrent > m_torrent;
     TorrentClient *m_client;
-    QSpinBox    *m_spinBox;
+    QSpinBox      *m_spinBox;
+    Downloader    *m_downloader;
 };
 
 #endif // MYWINDOW_H

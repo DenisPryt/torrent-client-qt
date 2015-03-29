@@ -12,37 +12,21 @@ MyWindow::MyWindow(QWidget *parent) : QWidget(parent)
 
     setLayout( layout );
 
-    connect( btn, &QPushButton::released, [this](){
-        long ind = m_spinBox->value();
-        PeerConnection *peer = new PeerConnection( m_client );
-
-        connect( peer, &PeerConnection::handshakeIsDone, [this](){
-            QMessageBox::information(this, "Correct handshake", "Correct handshake" );
-        } );
-        connect( peer, &PeerConnection::handshakeIsDone, peer, &PeerConnection::sendInterested );
-
-        connect( peer, &PeerConnection::handshakeFailed, [this](){
-            QMessageBox::critical(this, "Invalid handshake", "Invalid handshake" );
-        } );
-
-        long long piecesSize = m_torrent->GetTorrentFileInfo()->GetPieces().size();
-        qDebug() << "piecesSize = " << piecesSize;
-        peer->connectToPeer( m_peers[ ind ], m_torrent->GetTorrentFileInfo()->GetInfoHashSHA1(),
-                             piecesSize );
-        peer->prepareHandshakeMsg();
-    } );
-
     QFile file( "D:\\test.torrent" );
     if ( !file.open( QFile::ReadOnly ) ){
         return ;
     }
 
-    m_client    = new TorrentClient( this );
+    m_client = new TorrentClient( this );
     m_torrent.reset( new Torrent( TorrentFileInfo::parse( file.readAll() ) ) );
+
+    m_downloader = new Downloader( m_client, *m_torrent->GetTorrentFileInfo().data(), this );
 
     RequestToServerManager requestManager( m_client, this );
     m_peers = requestManager.GetPeers( m_torrent ).toList();
-    m_spinBox->setMaximum( m_peers.size() - 1 );
+    for ( auto peer : m_peers ){
+        m_downloader->addPeer( peer );
+    }
 
 }
 

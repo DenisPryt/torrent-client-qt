@@ -24,35 +24,37 @@ struct FileInfo{
     QByteArray          MD5Sum;
 };
 
-class TorrentFileInfo : public QObject
+class TorrentFileInfo
 {
-    Q_OBJECT
 public:
-    TorrentFileInfo( QObject *parent = nullptr ) : QObject(parent){ clear(); }
-    ~TorrentFileInfo(){}
+    TorrentFileInfo(){ clear(); }
     void clear();
 
-//// Simple Properties
-    PROP_GET( QList< QUrl >,    TrackerUrlList)    //announce + announce-list
-    PROP_GET( QDateTime,        CreationDate)    //creation date Дата создания торрента
+//// Shared Properties
+    PROP_GET( QList< QUrl >,    TrackerUrlList) //announce + announce-list
+    PROP_GET( QDateTime,        CreationDate)   //creation date Дата создания торрента
     PROP_GET( QString,          CreatedBy )     //created by    Имя и версия программы, которая использовалась для создания torrent-файла
     PROP_GET( QString,          Comment )       //comment       Текстовый комментарий в свободной форме от автора
     PROP_GET( quint64,          PieceLength )   //piece length  Размер каждого куска в байтах
     PROP_GET( QList< QByteArray >, Pieces )     //pieces Строка, составленная объединением 20-байтовых значений SHA1-хэшей каждого куска (один кусок — один хэш)
     PROP_GET( bool,             IsPeersFromTrackersOnly )//private
-    PROP_GET( QByteArray,       InfoHashSHA1 )    //SHA1 хэшсумма блока info
+    PROP_GET( QByteArray,       InfoHashSHA1 )  //SHA1 хэшсумма блока info
+
+    //name Имя корневой директории, которую содержит торрент. Носит рекомендательный характер.
+    //Для однофайловых не используется
+    PROP_GET( QString,          RootDirName )
 
 public:
-    const QUrl              GetTrackerUrl() const{ return m_TrackerUrlList[0]; }
-    const bool              IsSingleFile() const { return m_FilesInfo.size() == 1; }
-    const int               FilesCount() const   { return m_FilesInfo.size(); }
-    FileInfo&               GetFileInfo( uint pos );
+    const QUrl&             GetTrackerUrl() const{ return m_TrackerUrlList[0]; }
+    bool                    IsSingleFile() const { return m_FilesInfo.size() == 1; }
+    int                     GetFilesCount() const{ return m_FilesInfo.size(); }
+    const FileInfo&         GetFileInfo( uint pos );
     const FileInfo&         GetFileInfo( uint pos ) const;
 
-    FileInfo&               GetFileInfo();
+    const FileInfo&         GetFileInfo();
     const FileInfo&         GetFileInfo() const;
 
-    const quint64           GetTotalFilesSize() const;
+    quint64                 GetTotalFilesSize() const;
 
 //// Static
 public:
@@ -60,9 +62,6 @@ public:
 
 private:
 
-    //name Имя корневой директории, которую содержит торрент. Носит рекомендательный характер.
-    //Для однофайловых не используется
-    QString                 m_RootDirName;
     QList< FileInfo >       m_FilesInfo;
 };
 

@@ -22,7 +22,7 @@ void TorrentFileInfo::clear()
     m_TrackerUrlList.clear();
 }
 
-FileInfo &TorrentFileInfo::GetFileInfo(uint pos)
+const FileInfo &TorrentFileInfo::GetFileInfo(uint pos)
 {
     if ( pos >= m_FilesInfo.size() ){
         qCritical() << "Index out of range" << Q_FUNC_INFO;
@@ -40,7 +40,7 @@ const FileInfo &TorrentFileInfo::GetFileInfo(uint pos) const
     return m_FilesInfo[ pos ];
 }
 
-FileInfo &TorrentFileInfo::GetFileInfo()
+const FileInfo &TorrentFileInfo::GetFileInfo()
 {
     Q_ASSERT( m_FilesInfo.size() > 0 );
     return m_FilesInfo[0];
@@ -52,7 +52,7 @@ const FileInfo &TorrentFileInfo::GetFileInfo() const
     return m_FilesInfo[0];
 }
 
-const quint64 TorrentFileInfo::GetTotalFilesSize() const
+quint64 TorrentFileInfo::GetTotalFilesSize() const
 {
     quint64 totalSize = 0;
     for ( auto &file : m_FilesInfo ){
@@ -68,7 +68,9 @@ QSharedPointer< TorrentFileInfo > TorrentFileInfo::parse(const QByteArray &fileC
     const int SHA1_HASH_LENGTH = 20;
 
     TorrentFileParser parser;
-    connect(&parser, &TorrentFileParser::error, [](const QString &err){ qWarning() << "Parser error : " << err; } );
+    QObject::connect(&parser, &TorrentFileParser::error, [](const QString &err){
+        qWarning() << "Parser error : " << err;
+    } );
 
     if ( !parser.parse( fileContent ) ){
         return QSharedPointer< TorrentFileInfo >();
