@@ -58,7 +58,7 @@ public:
 
 //// Static
 public:
-    static QSharedPointer<TorrentFileInfo> parse(const QByteArray &fileContent);
+    static TorrentFileInfo parse(const QByteArray &fileContent);
 
 private:
 

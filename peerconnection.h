@@ -36,11 +36,25 @@ inline int qHash( const TorrentBlockDescriptor& blockDesc, uint seed ){
     return qHash( blockDesc.Begin, seed ) ^ qHash( blockDesc.Index, seed ) ^ qHash( blockDesc.Length, seed );
 }
 
+struct DownloadingTorrentBlock{
+    DownloadingTorrentBlock(){Begin = 0; RequestedLength = 0;}
+    DownloadingTorrentBlock(quint32 begin, quint32 requestedLen){Begin = begin; RequestedLength = requestedLen;}
+    quint32     Begin;
+    QByteArray  Block;
+    quint32     RequestedLength;
+
+    friend bool operator ==( const DownloadingTorrentBlock &l, const DownloadingTorrentBlock &r ){
+        return  l.Begin == r.Begin &&
+                l.RequestedLength == r.RequestedLength &&
+                l.Block.size() == r.Block.size();
+    }
+};
+
 class PeerConnection : public QTcpSocket
 {
     Q_OBJECT
 public:
-    PeerConnection(TorrentClient *torrentClient, QObject *parent = nullptr);
+    PeerConnection(QObject *parent = nullptr);
     void clear();
     ~PeerConnection();
 
@@ -75,23 +89,24 @@ public:
     quint64 GetDownloadSpeed() const { return CalculateSpeed( m_bytesDownloadedList ); }
     quint64 GetUploadSpeed() const   { return CalculateSpeed( m_bytesUploadedList ); }
 
-    void DownloadBlock(quint32 index , quint32 size);
-    quint32 Download( quint32 bytes );
-
 public slots:
     void connectToPeer(const PeerInfo &peerInfo , const QByteArray &infoHash, quint32 pieceCount);
     void peerConnectMe( qintptr socketDescriptor );
+    void DownloadBlock(quint32 index, quint32 begin, quint32 length);
 
 private:
     QTimer     *m_timerHandhsake;
     QTimer     *m_timerKeepAlive;
     QTimer     *m_timerMyKeepAlive;
     QTimer     *m_timerSpeedTest;
+    QTimer     *m_timerRequestedData;
 
     void        initTimer(QTimer *&timer, quint32 timeout, std::function< void(void) > timeoutHandler);
     void        clearTimer( QTimer *timer, quint32 timeout );
-
     void        SetTimeout(quint32 &timeoutVar, QTimer *timerVar, quint32 newTimeout);
+
+    TorrentBlockDescriptor m_lastRequestData;
+    void        timerRequestedDataHandler();
 
     //// Длинна списокв, хранящих кол-во скач/отд байт несколько обработок назад. Чем больше, тем сглаженнее скорость.
     uint m_bytesSpeedSize;
@@ -107,9 +122,9 @@ private:
 
     QSet< TorrentBlockDescriptor >              m_peerRequestedBlocks;
     QSet< TorrentBlockDescriptor >              m_amRequestedBlocks;
-    QHash< TorrentBlockDescriptor, QByteArray > m_downloadedBlocks;
+
+    QMultiHash< quint32, DownloadingTorrentBlock > m_downloadedBlocks;     //< index, begin + block >
     QBitArray                                   m_peerPieces;
-    QBitArray                                   m_downloadedPieces;
 
 signals:
     void IsPeerChokingChanged( bool newVal );
@@ -150,12 +165,13 @@ public slots:
     void CancelHandler();
 
 private:
+    void processingIncomingBlock(const TorrentBlockDescriptor &desc, const QByteArray &block);
+
+private:
     QByteArray      m_outgoingBuffer;
     QByteArray      m_incomingBuffer;
     bool            m_handshakeHandled;         // Рукопожатие было обработано мной
     bool            m_handshakeSended;          // Рукопожатие было послано мной
-
-    TorrentClient  *m_TorrentClient;
 
 private:
     enum PacketType {

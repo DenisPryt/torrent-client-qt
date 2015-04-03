@@ -63,7 +63,7 @@ quint64 TorrentFileInfo::GetTotalFilesSize() const
 
 
 //// Static
-QSharedPointer< TorrentFileInfo > TorrentFileInfo::parse(const QByteArray &fileContent )
+TorrentFileInfo TorrentFileInfo::parse(const QByteArray &fileContent )
 {
     const int SHA1_HASH_LENGTH = 20;
 
@@ -73,7 +73,7 @@ QSharedPointer< TorrentFileInfo > TorrentFileInfo::parse(const QByteArray &fileC
     } );
 
     if ( !parser.parse( fileContent ) ){
-        return QSharedPointer< TorrentFileInfo >();
+        return TorrentFileInfo();
     }
 
     auto getIfContains = []( BencodeHash &hash, const QByteArray &fild ) -> QVariant
@@ -89,40 +89,40 @@ QSharedPointer< TorrentFileInfo > TorrentFileInfo::parse(const QByteArray &fileC
 
     auto hash = parser.GetBencodeHash();
 
-    QSharedPointer< TorrentFileInfo > torrentFileInfo( new TorrentFileInfo );
-    torrentFileInfo->m_Comment      = getIfContains( hash, "comment" ).toString();
-    torrentFileInfo->m_CreatedBy    = getIfContains( hash, "created by" ).toString();
+    TorrentFileInfo torrentFileInfo;
+    torrentFileInfo.m_Comment      = getIfContains( hash, "comment" ).toString();
+    torrentFileInfo.m_CreatedBy    = getIfContains( hash, "created by" ).toString();
     auto dateTime                   = getIfContains( hash, "creation date" ).toLongLong();
-    torrentFileInfo->m_CreationDate.setTime_t( dateTime );
+    torrentFileInfo.m_CreationDate.setTime_t( dateTime );
 
     auto announce = getIfContains( hash, "announce" ).toString();
     if ( !announce.isEmpty() ){
-        torrentFileInfo->m_TrackerUrlList.append( QUrl( announce ) );
+        torrentFileInfo.m_TrackerUrlList.append( QUrl( announce ) );
     }
 
     auto annonceList = getIfContains( hash, "announce-list" ).toStringList();
     for ( auto curTracker : annonceList ){
-        torrentFileInfo->m_TrackerUrlList.append( QUrl(curTracker) );
+        torrentFileInfo.m_TrackerUrlList.append( QUrl(curTracker) );
     }
 
     if ( hash.contains( "info" ) ){
-        torrentFileInfo->m_InfoHashSHA1 = QCryptographicHash::hash( parser.GetInfoArray(), QCryptographicHash::Sha1 );
+        torrentFileInfo.m_InfoHashSHA1 = QCryptographicHash::hash( parser.GetInfoArray(), QCryptographicHash::Sha1 );
 
         auto info = hash[ "info" ].value< BencodeHash >();
-        torrentFileInfo->m_PieceLength = getIfContains( info, "piece length" ).toLongLong();
+        torrentFileInfo.m_PieceLength = getIfContains( info, "piece length" ).toLongLong();
 
         QByteArray piecesString = getIfContains( info, "pieces" ).toByteArray();
         qint64 pos = 0;
         while ( pos < piecesString.size() ){
-            torrentFileInfo->m_Pieces.append( piecesString.mid(pos, SHA1_HASH_LENGTH) );
+            torrentFileInfo.m_Pieces.append( piecesString.mid(pos, SHA1_HASH_LENGTH) );
             pos += SHA1_HASH_LENGTH;
         }
 
-        torrentFileInfo->m_IsPeersFromTrackersOnly = info.contains("private") ?
+        torrentFileInfo.m_IsPeersFromTrackersOnly = info.contains("private") ?
                                                      ( hash["private"].toInt() == 1 ? true : false ) : false;
 
         if ( info.contains("files") ){      // MultiFile
-            torrentFileInfo->m_RootDirName = getIfContains( info, "name" ).toString();
+            torrentFileInfo.m_RootDirName = getIfContains( info, "name" ).toString();
             QList< QVariant > files = getIfContains( info, "files" ).toList();
             for ( auto curFileVariant : files ){
                 BencodeHash curFile = curFileVariant.value< BencodeHash >();
@@ -134,7 +134,7 @@ QSharedPointer< TorrentFileInfo > TorrentFileInfo::parse(const QByteArray &fileC
                 }
                 curFileInfo.FileSize = getIfContains( curFile, "length" ).toLongLong();
                 curFileInfo.MD5Sum   = getIfContains( curFile, "md5sum" ).toByteArray();
-                torrentFileInfo->m_FilesInfo.append( curFileInfo );
+                torrentFileInfo.m_FilesInfo.append( curFileInfo );
             }
         }
         else{                               // SingleFile
@@ -142,12 +142,12 @@ QSharedPointer< TorrentFileInfo > TorrentFileInfo::parse(const QByteArray &fileC
                      fileInfo.FileSize = getIfContains( info, "length" ).toLongLong();
                      fileInfo.FilePath = getIfContains( info, "name" ).toString();
                      fileInfo.MD5Sum   = getIfContains( info, "md5sum" ).toByteArray();
-            torrentFileInfo->m_FilesInfo.append( fileInfo );
+            torrentFileInfo.m_FilesInfo.append( fileInfo );
         }
     }
     else{
         qCritical() << "No \'info\' in .torrent file";
-        return QSharedPointer< TorrentFileInfo >();
+        return TorrentFileInfo();
     }
 
     return torrentFileInfo;

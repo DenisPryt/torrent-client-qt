@@ -7,6 +7,8 @@
 #include <QTimerEvent>
 #include <QCryptographicHash>
 
+#include <QDebug>
+
 FileManager::FileManager(QObject *parent)
     : QThread(parent)
 {
@@ -53,6 +55,7 @@ int FileManager::read(int pieceIndex, int offset, int length)
 
 void FileManager::write(int pieceIndex, int offset, const QByteArray &data)
 {
+    qDebug() << "\t\tWRITE +";
     WriteRequest request;
     request.pieceIndex = pieceIndex;
     request.offset = offset;
@@ -65,6 +68,7 @@ void FileManager::write(int pieceIndex, int offset, const QByteArray &data)
         m_wokeUp = true;
         QMetaObject::invokeMethod(this, "wakeUp", Qt::QueuedConnection);
     }
+    qDebug() << "\t\tWRITE -";
 }
 
 void FileManager::verifyPiece(int pieceIndex)

@@ -10,30 +10,61 @@
 
 class PeerConnection;
 class TorrentClient;
+class RequestToServerManager;
+class PeersManager;
 
 class Downloader : public QObject
 {
     Q_OBJECT
 public:
-    explicit Downloader(TorrentClient *torrentClient, const TorrentFileInfo &info, QObject *parent = 0);
+    explicit Downloader(const TorrentFileInfo &info, QObject *parent = 0);
     ~Downloader();
 
-    void addPeer( const PeerInfo &peerInfo );
+    enum States{
+        StatePeersProcessing,
+        StateFileVerification,
+        StateDownloading,
+        StateInvalid
+    };
 
 signals:
+    void progressChanged(double percent);
 
 public slots:
-    void removePeer();
+    void startTorrent();
+    void fetchComplited();
     void writeIncomingBlock(quint32 index, quint32 begin, const QByteArray &block);
-    void downloadNextBlock( bool isPeerChoking );
+
+private slots:
+    void setState( States state );
+    void startDownload();
 
 private:
-    QHash< PeerInfo, PeerConnection *>  m_peers;
-    TorrentClient                      *m_torrentClient;
-    TorrentFileInfo                     m_torrentFileInfo;
+    States                              m_state;
+
+    QSet< PeerInfo >                    m_peers;
+    QHash< PeerInfo, PeerConnection *>  m_peerConnections;
+    QHash< quint32, QBitArray >         m_downloadingPiece2ComplitedBlocks;
+    QHash< quint32, quint32 >           m_downloadingPiece2NextBlock;
+    QBitArray                           m_complitedPieces;
+
     FileManager                        *m_fileManager;
-    quint32                             m_downloadedPieceIndex;
-    quint32                             m_downloadedBytes;
+    PeersManager                       *m_peersManager;
+    TorrentFileInfo                     m_torrentFileInfo;
+    quint32                             m_nextPiece2Download;
+
+    quint32                             m_successConnection;
+
+private:
+    quint32 getBlockLength(quint32 numOfBlock) const;
+    quint32 getBlocksCount() const;
+    quint32 getBlockNum(quint32 begin);
+    quint32 getBlockBegin(quint32 blockNum);
+
+//// Static consts
+private:
+    static const uint MaxPiecesDownloading;
+    static const uint MaxBlockSize4Request;
 };
 
 #endif // DOWNLOADER_H

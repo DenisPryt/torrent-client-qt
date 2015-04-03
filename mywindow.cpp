@@ -1,15 +1,13 @@
 #include "mywindow.h"
 #include <QMessageBox>
+#include <QProgressBar>
 
 MyWindow::MyWindow(QWidget *parent) : QWidget(parent)
 {
-    auto btn    = new QPushButton("HANDSHAKE", this);
-    m_spinBox   = new QSpinBox(this);
-    m_spinBox->setMinimum(0);
+    auto pb = new QProgressBar( this );
+    pb->setMaximum( 100 );
     auto layout = new QVBoxLayout;
-    layout->addWidget( btn );
-    layout->addWidget( m_spinBox );
-
+    layout->addWidget( pb );
     setLayout( layout );
 
     QFile file( "D:\\test.torrent" );
@@ -17,16 +15,9 @@ MyWindow::MyWindow(QWidget *parent) : QWidget(parent)
         return ;
     }
 
-    m_client = new TorrentClient( this );
-    m_torrent.reset( new Torrent( TorrentFileInfo::parse( file.readAll() ) ) );
-
-    m_downloader = new Downloader( m_client, *m_torrent->GetTorrentFileInfo().data(), this );
-
-    RequestToServerManager requestManager( m_client, this );
-    m_peers = requestManager.GetPeers( m_torrent ).toList();
-    for ( auto peer : m_peers ){
-        m_downloader->addPeer( peer );
-    }
+    m_downloader = new Downloader( TorrentFileInfo::parse( file.readAll() ), this );
+    connect( m_downloader, &Downloader::progressChanged, pb, &QProgressBar::setValue );
+    m_downloader->startTorrent();
 
 }
 

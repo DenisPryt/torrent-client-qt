@@ -2,31 +2,35 @@
 #define TORRENTCLIENT_H
 
 #include "macro.h"
-#include <QObject>
-#include <QHostAddress>
 #include "clienidgenerators.h"
 
-class TorrentClient : public QObject
+#include <QObject>
+#include <QHostAddress>
+#include <QReadWriteLock>
+
+class TorrentClient
 {
-    Q_OBJECT
 public:
-    explicit TorrentClient(QObject *parent = 0);
-    ~TorrentClient();
+    inline TorrentClient();
+    static TorrentClient *instance();
     void clear();
 
-    PROP_GET( QHostAddress, IpAddress )
-    PROP_GET( quint16,      Port )
-    PROP_GET( QByteArray,   ClientId )        // 20-байтовая строка, которая используется как уникальный идентификатор клиента, сгенерированный им же при запуске.
-    PROP_SIMPLE( IdStyles::Styles, IdStyle )
+    QHostAddress GetIpAddress() const;
+    quint16      GetPort() const;
+    QByteArray   GetClientId() const;        // 20-байтовая строка, которая используется как уникальный идентификатор клиента, сгенерированный им же при запуске.
+    IdStyles::Styles GetIdStyle() const;
 
-public:
+    void SetIdStyle( IdStyles::Styles style );
 
-public slots:
     void generateClientId( IdStyles::Styles style = IdStyles::Shadow );
-    void initialClient();
 
-signals:
-    void IdStyleChanged( const IdStyles::Styles &newStyle );
+private:
+    QHostAddress     m_IpAddress;
+    quint16          m_Port;
+    QByteArray       m_ClientId;
+    IdStyles::Styles m_IdStyle;
+
+    mutable QReadWriteLock m_lock;
 };
 
 #endif // TORRENTCLIENT_H

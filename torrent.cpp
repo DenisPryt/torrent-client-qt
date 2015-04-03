@@ -10,11 +10,10 @@ void TorrentDownloadInfo::clear()
 }
 
 //// class Torrent
-Torrent::Torrent(QSharedPointer<TorrentFileInfo> torFileInf, QObject *parent /*= 0*/)
+Torrent::Torrent(const TorrentFileInfo &torFileInf, QObject *parent /*= 0*/)
     : QObject(parent)
     , m_TorrentDownloadInfo( new TorrentDownloadInfo )
 {
-    Q_ASSERT( !torFileInf.isNull() );
     m_TorrentFileInfo = torFileInf;
 }
 

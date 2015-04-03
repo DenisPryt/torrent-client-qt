@@ -7,12 +7,24 @@
 #include <QHostInfo>
 #include <QTimer>
 
-RequestToServerManager::RequestToServerManager(TorrentClient *torClient, QObject *parent)
+static const uint WAITING_TIME = 500;   // 0.5 sec
+
+RequestToServerManager::RequestToServerManager(Torrent *torrent, QObject *parent)
     : QObject(parent)
-    , m_torrentClient(torClient)
 {
+    if ( torrent == nullptr ){
+        qCritical() << Q_FUNC_INFO << "torFileInfo is null";
+        return;
+    }
+
+    m_torrent = torrent;
+    m_torrent->setParent( this );
+
     m_connectionId = 0;
+    m_transactionId = 0;
+    m_wantPeersCount = -1;
     m_requestsAmount = 0;
+    m_wasFetch = false;
     m_lastAction = ActionError;
 
     connect( &m_udpSocket, &QUdpSocket::stateChanged, [this](QAbstractSocket::SocketState state){
@@ -27,92 +39,62 @@ RequestToServerManager::~RequestToServerManager()
 {
 }
 
-QSet< PeerInfo > RequestToServerManager::GetPeers(QSharedPointer< Torrent > torrent, qint32 peersCount /*= -1*/)
+const QSet< PeerInfo >& RequestToServerManager::GetPeers(qint32 peersCount /*= -1*/)
 {
-    m_fetchedPeers.clear();
-    if ( torrent.isNull() ){
-        qCritical() << Q_FUNC_INFO << "torFileInfo is null";
-        return m_fetchedPeers;
-    }
     if ( peersCount < -1 ){
         qWarning() << Q_FUNC_INFO << "peersCount < -1";
         peersCount = -1;
     }
 
     m_wantPeersCount = peersCount;
-    m_torrent = torrent;
-    auto torFleInfo = m_torrent->GetTorrentFileInfo();
-
+    auto torFleInfo = &m_torrent->GetTorrentFileInfo();
     connect( &m_udpSocket, &QIODevice::readyRead, this, &RequestToServerManager::responseHandler );
-    m_udpSocket.connectToHost( torFleInfo->GetTrackerUrl().host(), torFleInfo->GetTrackerUrl().port(),
-                               QIODevice::ReadWrite, QUdpSocket::IPv4Protocol );
-    if ( !m_udpSocket.waitForConnected() ){
-        qCritical() << "Connetced failed!!!";
-        return m_fetchedPeers;
+
+    for ( auto url : torFleInfo->GetTrackerUrlList() ){
+        m_fetchedPeers.clear();
+        m_wasFetch = false;
+        bool wasFail = false;
+        m_udpSocket.connectToHost( url.host(), url.port(), QIODevice::ReadWrite, QUdpSocket::IPv4Protocol );
+
+        if ( !m_udpSocket.waitForConnected() ){
+            m_udpSocket.abort();
+            continue;
+        }
+
+        int requestsAmount = 0;
+        do{
+            ++requestsAmount;
+            connectRequest();
+            if ( requestsAmount > 4 ){
+                m_udpSocket.abort();
+                wasFail = true;
+                break;
+            }
+        }while( !m_udpSocket.waitForReadyRead(WAITING_TIME) );
+        if ( wasFail ){
+            continue;
+        }
+
+        requestsAmount = 0;
+        do{
+            ++requestsAmount;
+            announceRequest();
+            if ( requestsAmount > 4 ){
+                m_udpSocket.abort();
+                wasFail = true;
+                break;
+            }
+        }while( !m_udpSocket.waitForReadyRead(WAITING_TIME) );
+        if ( wasFail ){
+            continue;
+        }
+
+        if ( m_wasFetch ){
+            break;
+        }
     }
-
-    int requestsAmount = 0;
-    do{
-        ++requestsAmount;
-        connectRequest();
-        if ( requestsAmount > 4 ){
-            qCritical() << "SERVER DO NOT RESPONSE";
-            return m_fetchedPeers;
-        }
-    }while( !m_udpSocket.waitForReadyRead(5000) );
-
-
-    requestsAmount = 0;
-    do{
-        ++requestsAmount;
-        announceRequest();
-        if ( requestsAmount > 4 ){
-            qCritical() << "SERVER DO NOT RESPONSE";
-            return m_fetchedPeers;
-        }
-    }while( !m_udpSocket.waitForReadyRead(5000) );
 
     return m_fetchedPeers;
-    /*
-    auto infoHash = QUrl( torrentInfoPtr->GetInfoHashSHA1() ).toEncoded(QUrl::FullyEncoded);
-    qDebug() << "info hash : " <<  infoHash;
-
-    //long noPeerId = 0;          // Говорит о том, что трекер может пренебречь полем 'peer id' в хэш-таблице 'peers'. Этот параметр игнорируется, если включен компактный режим.
-    //long key = 0;               // (опциональный) Дополнительная идентификация, которая не доступна остальным пользователям. Предназначена для того, чтобы клиент мог подтвердить свою подлинность при смене IP-адреса.
-
-    QUrlQuery query( torrentInfoPtr->GetTrackerUrl() );
-    // 20-байтовый SHA1-хеш от значения ключа 'info' файла мета-данных
-    query.addQueryItem( "info_hash", infoHash );
-    // 20-байтовая строка, которая используется как уникальный идентификатор клиента, сгенерированный им же при запуске.
-    query.addQueryItem( "peer_id", m_torrentClient->GetClientId() );
-    // Номер порта, который прослушивает клиент. Зарезервированы для BitTorrent — 6881-6889
-    query.addQueryItem( "port", QByteArray::number( m_torrentClient->GetPort() ) );
-    // "1" сигнализирует, что клиет может принимать компактные ответы.
-    query.addQueryItem( "compact", "1" );
-    // Суммарное количество отданных данных (после того, как клиент послал событие 'started' трекеру) записанное десятичным числом.
-    query.addQueryItem( "uploaded", QByteArray::number(0) );
-    // Суммарное количество скачанных данных (после того, как клиент послал событие 'started' трекеру) записанное десятичным числом.
-    query.addQueryItem( "downloaded", QByteArray::number(0) );
-    // Число байт десятичным числом, которое клиент ещё должен скачать.
-    query.addQueryItem( "left", QByteArray::number( torrentInfoPtr->GetTotalFilesSize() ) );
-    // 'started', 'stopped', 'completed'
-    query.addQueryItem( "event", "started" );
-    // (опциональный) Если предыдущий ответ содержал значение 'tracker id', это значение нужно вписать сюда.
-    if ( !m_trackerId.isEmpty() ){
-        query.addQueryItem( "trackerid", m_trackerId );
-    }
-    // (опциональный) Количество пиров, которое клиент хочет получить от трекера. Значение может быть нулём. Если параметр не задан, по-умолчанию, обычно отдаётся 50 пиров.
-    //query.addQueryItem( "numwant", QByteArray::number(30) );
-
-    // (опциональный) Реальный IP-адрес клиентской машины, формат адреса — четыре байта (десятичными числами) разделённых точками
-    if ( !m_torrentClient->GetIpAddress().isNull() ){
-        query.addQueryItem( "ip", m_torrentClient->GetIpAddress().toString() );
-    }
-
-    QUrl requstUrl = torrentInfoPtr->GetTrackerUrl();
-    requstUrl.setQuery( query );
-    qDebug() << requstUrl;
-*/
 }
 
 //// Requests
@@ -131,7 +113,7 @@ void RequestToServerManager::connectRequest()
 
 void RequestToServerManager::announceRequest()
 {
-    auto torFileInfo = m_torrent->GetTorrentFileInfo();
+    auto torFileInfo = &m_torrent->GetTorrentFileInfo();
 
     m_lastAction = ActionAnnounce;
     m_transactionId = QDateTime::currentDateTime().toTime_t();
@@ -141,7 +123,7 @@ void RequestToServerManager::announceRequest()
         qWarning() << Q_FUNC_INFO << "INVALIS INFOHASH";
     }
 
-    const auto &clientId = m_torrentClient->GetClientId();
+    auto clientId = TorrentClient::instance()->GetClientId();
     if ( clientId.size() != 20 ){
         qWarning() << Q_FUNC_INFO << "INVALIS CLIENT ID";
     }
@@ -152,17 +134,19 @@ void RequestToServerManager::announceRequest()
     QByteArray messege;
     QDataStream out( &messege, QIODevice::WriteOnly );
     out << qint64( m_connectionId ) << qint32( m_lastAction ) << qint32( m_transactionId );
+
+    auto ipAddress = TorrentClient::instance()->GetIpAddress();
     QByteArray messegeEnd;
     QDataStream out2( &messegeEnd, QIODevice::WriteOnly );
     out2<< qint64( downlInf->Downloaded ) << qint64( downlInf->Left )
-        << qint64( downlInf->Uploaded ) << qint32( event ) << qint32(m_torrentClient->GetIpAddress().toIPv4Address())
-        << qint32( key ) << qint32( m_wantPeersCount ) << qint16( m_torrentClient->GetPort() );
+        << qint64( downlInf->Uploaded ) << qint32( event ) << qint32(ipAddress.toIPv4Address())
+        << qint32( key ) << qint32( m_wantPeersCount ) << qint16( TorrentClient::instance()->GetPort() );
 
     qDebug() << "ANNOUNCE REQUEST IS :" << qint64( m_connectionId ) << qint32( m_lastAction )
              << qint32( m_transactionId ) << infoHash << clientId << qint64( downlInf->Downloaded )
              << qint64( downlInf->Left ) << qint64( downlInf->Uploaded )
              << qint32( event ) << qint32( 0 )
-             << qint32( key ) << qint32( m_wantPeersCount ) << qint16( m_torrentClient->GetPort() );
+             << qint32( key ) << qint32( m_wantPeersCount ) << qint16( TorrentClient::instance()->GetPort() );
 
     messege.append( infoHash ).append( clientId ).append(messegeEnd);
     qDebug() << "ANNOUNCE REQUEST SIZE : " << m_udpSocket.write( messege );
@@ -260,6 +244,7 @@ void RequestToServerManager::announceResponseHandler()
         return;
     }
 
+    m_wasFetch = true;
     int i = 0;
     while ( !in.atEnd() ){
         in >> ipAddress >> tcpPort;

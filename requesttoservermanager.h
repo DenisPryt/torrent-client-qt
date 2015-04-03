@@ -17,10 +17,10 @@ class RequestToServerManager : public QObject
 {
     Q_OBJECT
 public:
-    explicit RequestToServerManager(TorrentClient *torClient, QObject *parent = 0);
+    explicit RequestToServerManager(Torrent *torrent, QObject *parent = 0);
     ~RequestToServerManager();
 
-    QSet< PeerInfo > GetPeers(QSharedPointer< Torrent > torrent, qint32 peersCount = -1 );
+    const QSet<PeerInfo> &GetPeers(qint32 peersCount = -1 );
 
 signals:
 
@@ -49,17 +49,17 @@ private:
     ActionTypes             m_lastAction;
 
     QUdpSocket              m_udpSocket;
-    QSharedPointer< Torrent > m_torrent;
+    Torrent                *m_torrent;
 
     qint32                  m_transactionId;
     qint64                  m_connectionId;
 
     QByteArray              m_response;
-    TorrentClient          *m_torrentClient;
 
     qint32                  m_wantPeersCount;
     uint                    m_requestsAmount;        // После каждого успешного действия сбрасывается
 
+    bool                    m_wasFetch;
     QSet< PeerInfo >        m_fetchedPeers;
 };
 

@@ -22,7 +22,7 @@ QVariant TorrentModel::data(const QModelIndex &index, int role) const
     auto &torrent = *m_torrentsList[ index.row() ];
     switch (role) {
     case torName:
-        return torrent.GetTorrentFileInfo()->GetFileInfo().FilePath;
+        return torrent.GetTorrentFileInfo().GetFileInfo().FilePath;
 
     case torDownloaded:
         return torrent.GetTorrentDownloadInfo()->Downloaded;
@@ -62,7 +62,7 @@ bool TorrentModel::insertRows(int row, int count, const QModelIndex &parent)
         qWarning() << Q_FUNC_INFO << "OUT OF RANGE";
         return false;
     }
-    Torrent *emptyTorrent = new Torrent( QSharedPointer< TorrentFileInfo >(), this );
+    Torrent *emptyTorrent = new Torrent( TorrentFileInfo(), this );
     beginInsertRows(parent, row, row + count - 1);
     for ( int i = 0; i < count; ++i ){
         m_torrentsList.insert( row, emptyTorrent );

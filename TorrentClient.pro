@@ -16,7 +16,8 @@ SOURCES += main.cpp \
     mywindow.cpp \
     torrentmodel.cpp \
     filemanager.cpp \
-    downloader.cpp
+    downloader.cpp \
+    peersmanager.cpp
 
 RESOURCES += qml.qrc
 
@@ -39,4 +40,5 @@ HEADERS += \
     mywindow.h \
     torrentmodel.h \
     filemanager.h \
-    downloader.h
+    downloader.h \
+    peersmanager.h
