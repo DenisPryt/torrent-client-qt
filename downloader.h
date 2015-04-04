@@ -24,6 +24,7 @@ public:
         StatePeersProcessing,
         StateFileVerification,
         StateDownloading,
+        StateDownloaded,
         StateInvalid
     };
 
@@ -46,20 +47,23 @@ private:
     QHash< PeerInfo, PeerConnection *>  m_peerConnections;
     QHash< quint32, QBitArray >         m_downloadingPiece2ComplitedBlocks;
     QHash< quint32, quint32 >           m_downloadingPiece2NextBlock;
-    QBitArray                           m_complitedPieces;
 
     FileManager                        *m_fileManager;
     PeersManager                       *m_peersManager;
     TorrentFileInfo                     m_torrentFileInfo;
-    quint32                             m_nextPiece2Download;
 
-    quint32                             m_successConnection;
+    // Временно. Потом номер куска для скачки будет определяться по частоте встречания этого куска у пиров
+    qint32                              m_nextPiece2Download;
 
 private:
+    qint32  getFirstNotDownloadedPiece() const;
+    qint32  getNextPiece();
+    void    pieceDownloaded( qint32 pieceIndex );
+
     quint32 getBlockLength(quint32 numOfBlock) const;
     quint32 getBlocksCount() const;
-    quint32 getBlockNum(quint32 begin);
-    quint32 getBlockBegin(quint32 blockNum);
+    quint32 getBlockNum(quint32 begin) const;
+    quint32 getBlockBegin(quint32 blockNum) const;
 
 //// Static consts
 private:
