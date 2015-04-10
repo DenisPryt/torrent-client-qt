@@ -19,7 +19,7 @@ public:
     explicit FileManager(QObject *parent = 0);
     virtual ~FileManager();
 
-    inline void setMetaInfo(const TorrentFileInfo &info) { m_torrentFileInfo = info; }
+    inline void setTorrentFileInfo(const TorrentFileInfo &info) { m_torrentFileInfo = info; }
     inline void setDestinationFolder(const QString &directory) { m_destinationPath = directory; }
 
     int read(int pieceIndex, int offset, int length);

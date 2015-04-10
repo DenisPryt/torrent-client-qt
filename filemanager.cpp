@@ -62,6 +62,7 @@ void FileManager::write(int pieceIndex, int offset, const QByteArray &data)
     request.data = data;
 
     QMutexLocker locker(&m_mutex);
+    qDebug() << "\t\tRequests size " << m_writeRequests.size();
     m_writeRequests << request;
 
     if (!m_wokeUp) {

@@ -7,8 +7,33 @@
 
 #include <QMessageBox>
 
-const uint Downloader::MaxPiecesDownloading = 5;
-const uint Downloader::MaxBlockSize4Request = 8000;
+//// start static
+const uint Downloader::_MaxPiecesDownloading = 5;
+const uint Downloader::_MaxBlockSize4Request = 8000;
+
+const QHash< Downloader::States, QString > Downloader::_State2Name = Downloader::formState2Name();
+
+const QString Downloader::getStateName(States state)
+{
+    if ( !_State2Name.contains( state ) ){
+        return _State2Name[ StateInvalid ];
+    }
+
+    return _State2Name[ state ];
+}
+
+const QHash<Downloader::States, QString> Downloader::formState2Name()
+{
+    QHash<Downloader::States, QString> state2name;
+    state2name[ StatePeersProcessing ] = QStringLiteral( "Getting list of peers" );
+    state2name[ StateFileVerification ] = QStringLiteral( "Files checking" );
+    state2name[ StateDownloading ] = QStringLiteral( "Downloading" );
+    state2name[ StateDownloaded ] = QStringLiteral( "Downloaded" );
+    state2name[ StateInvalid ] = QStringLiteral( "Invalid state" );
+    return state2name;
+}
+//// end static
+
 
 Downloader::Downloader(const TorrentFileInfo &info, QObject *parent)
     : QObject(parent)
@@ -20,11 +45,13 @@ Downloader::Downloader(const TorrentFileInfo &info, QObject *parent)
     m_peersManager = new PeersManager( requestManager, m_torrentFileInfo.GetInfoHashSHA1(),
                                        m_torrentFileInfo.GetPieces().size(), this );
     connect( m_peersManager, &PeersManager::FetchComplited, this, &Downloader::fetchComplited );
+    connect( m_peersManager, &PeersManager::DownloadSpeedChanged, this, &Downloader::downloadSpeedChanged );
+    connect( m_peersManager, &PeersManager::UploadSpeedChanged, this, &Downloader::uploadSpeedChanged );
 
     m_fileManager = new FileManager( this );
     connect( m_fileManager, &FileManager::verificationProgress, this, &Downloader::progressChanged );
     connect( m_fileManager, &FileManager::verificationDone, this, &Downloader::startDownload );
-    connect( m_fileManager, &FileManager::pieceVerified, [this]( int index, bool isVer ){
+    connect( m_fileManager, &FileManager::pieceVerified, this, [this]( int index, bool isVer ){
         Q_UNUSED( index );
         if ( isVer ){
             int verPiecesCount = m_fileManager->completedPieces().count( true );
@@ -34,7 +61,7 @@ Downloader::Downloader(const TorrentFileInfo &info, QObject *parent)
     } );
 
     m_fileManager->setDestinationFolder("D:/");
-    m_fileManager->setMetaInfo( info );
+    m_fileManager->setTorrentFileInfo( info );
     m_fileManager->start();
 }
 
@@ -44,12 +71,14 @@ Downloader::~Downloader()
 
 void Downloader::startTorrent()
 {
+    setState( StateFileVerification );
     m_fileManager->startDataVerification();
 }
 
 void Downloader::startDownload()
 {
-    m_peersManager->SetPeersCount( MaxPiecesDownloading );
+    setState( StatePeersProcessing );
+    m_peersManager->SetPeersCount( 50 );
     m_peersManager->StartFetchPeers();
 
     const auto complitedPieces = m_fileManager->completedPieces();
@@ -131,9 +160,11 @@ void Downloader::fetchComplited()
         return;
     }
 
+    setState( StateDownloading );
     const auto& peers = m_peersManager->GetConnections();
     qDebug() << Q_FUNC_INFO << QThread::currentThreadId() << peers.size();
 
+    // Каждый пир будет качать свой кусок.
     for ( auto peer : peers ){
         auto pieceIndex = getNextPiece();
         m_downloadingPiece2ComplitedBlocks[ pieceIndex ].resize( getBlocksCount() );
@@ -147,17 +178,17 @@ void Downloader::fetchComplited()
 quint32 Downloader::getBlockLength( quint32 numOfBlock ) const
 {
     if ( numOfBlock == getBlocksCount() - 1 ){
-        quint32 lastBlockLen = m_torrentFileInfo.GetPieceLength() % MaxBlockSize4Request;
+        quint32 lastBlockLen = m_torrentFileInfo.GetPieceLength() % _MaxBlockSize4Request;
         if ( lastBlockLen > 0 )
             return lastBlockLen;
     }
-    return MaxBlockSize4Request;
+    return _MaxBlockSize4Request;
 }
 
 quint32 Downloader::getBlocksCount() const
 {
-    quint32 blocksCount = m_torrentFileInfo.GetPieceLength() / MaxBlockSize4Request;
-    if ( (m_torrentFileInfo.GetPieceLength() % MaxBlockSize4Request) > 0 ){
+    quint32 blocksCount = m_torrentFileInfo.GetPieceLength() / _MaxBlockSize4Request;
+    if ( (m_torrentFileInfo.GetPieceLength() % _MaxBlockSize4Request) > 0 ){
         ++blocksCount;
     }
     return blocksCount;
@@ -165,12 +196,12 @@ quint32 Downloader::getBlocksCount() const
 
 quint32 Downloader::getBlockNum(quint32 begin) const
 {
-    return begin / MaxBlockSize4Request;
+    return begin / _MaxBlockSize4Request;
 }
 
 quint32 Downloader::getBlockBegin(quint32 blockNum) const
 {
-    return blockNum * MaxBlockSize4Request;
+    return blockNum * _MaxBlockSize4Request;
 }
 
 void Downloader::writeIncomingBlock( quint32 index, quint32 begin, const QByteArray &block )
@@ -214,5 +245,7 @@ void Downloader::writeIncomingBlock( quint32 index, quint32 begin, const QByteAr
 
 void Downloader::setState(Downloader::States state)
 {
-    m_state = state;
+    if ( m_state != state ){
+        emit stateIsChanged( m_state = state );
+    }
 }

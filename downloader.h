@@ -30,6 +30,9 @@ public:
 
 signals:
     void progressChanged(double percent);
+    void stateIsChanged( States newState );
+    void downloadSpeedChanged( quint64 newSpeed );
+    void uploadSpeedChanged( quint64 newSpeed );
 
 public slots:
     void startTorrent();
@@ -65,10 +68,20 @@ private:
     quint32 getBlockNum(quint32 begin) const;
     quint32 getBlockBegin(quint32 blockNum) const;
 
+//// Static public members
+public:
+    static const QString getStateName( States state );
+
 //// Static consts
 private:
-    static const uint MaxPiecesDownloading;
-    static const uint MaxBlockSize4Request;
+    static const uint _MaxPiecesDownloading;
+    static const uint _MaxBlockSize4Request;
+
+    static const QHash< States, QString > _State2Name;
+
+//// Static private members
+private:
+    static const QHash< States, QString > formState2Name();
 };
 
 #endif // DOWNLOADER_H

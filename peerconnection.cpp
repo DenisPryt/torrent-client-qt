@@ -14,8 +14,8 @@ static const quint32    STANDART_HANDSHAKE_TIMEOUT = 1000 * 3;      // 3 sec
 static const quint32    STANDART_KEEPALIVE_TIMEOUT = 1000 * 60 * 3; // 3 min
 static const uint       STANDART_SPEEDTEST_TIMEOUT = 1000 * 6;      // 6 sec
 static const uint       STANDART_BYTES_SPEED_SIZE  = 8;
-static const uint       STANDART_PIECE_SIZE        = 16384;         // 2^14
-static const uint       STANDART_REQUESTED_DATA_TIMEOUT = 1000 * 2;      // 2 sec
+static const uint       STANDART_PIECE_SIZE        = 8000;
+static const uint       STANDART_REQUESTED_DATA_TIMEOUT = 1000 * 3;      // 3 sec
 
 PeerConnection::PeerConnection(QObject *parent )
     : QTcpSocket( parent )
@@ -37,11 +37,11 @@ PeerConnection::PeerConnection(QObject *parent )
     initTimer( m_timerKeepAlive, STANDART_KEEPALIVE_TIMEOUT, [this](){
         m_timerKeepAlive->stop();
         qWarning() << "KEEP ALIVE TIMEOUT";
-        disconnectFromHost();
+        //disconnectFromHost();
     } );
 
     initTimer( m_timerMyKeepAlive, STANDART_KEEPALIVE_TIMEOUT, [this](){
-        qDebug() << "My keep alive timeout";
+        //qDebug() << "My keep alive timeout";
         sendKeepAlive();
     } );
 
@@ -64,7 +64,7 @@ PeerConnection::PeerConnection(QObject *parent )
     } );
 */
     connect( this, &PeerConnection::connected, [this](){
-        qDebug() << write( m_outgoingBuffer );
+        write( m_outgoingBuffer );
         m_handshakeSended = true;
     } );
 }
@@ -168,7 +168,10 @@ quint64 PeerConnection::CalculateSpeed(const QLinkedList<quint64> &list) const
     for ( auto bytes : list )
         sum += bytes;
 
-    return sum / (list.size() * STANDART_SPEEDTEST_TIMEOUT);
+    if ( sum == 0 || list.size() == 0 )
+        return 0;
+
+    return sum / ( list.size() * (STANDART_SPEEDTEST_TIMEOUT / 1000) );
 }
 
 PeerConnection::~PeerConnection()
@@ -193,7 +196,8 @@ void PeerConnection::processingIncomingBlock( const TorrentBlockDescriptor &desc
     }
 
     if ( dowTorBlockIt == m_downloadedBlocks.end() || dowTorBlockIt.key() != desc.Index ){
-        qDebug() << Q_FUNC_INFO << "NOT FOUNT REQUESTED DATA BY INCOMMING DATA";
+        qDebug() << Q_FUNC_INFO << "\nNOT FOUNT REQUESTED DATA BY INCOMMING DATA";
+        timerRequestedDataHandler();        // Запросить последний блок по новой
         return;
     }
 
@@ -286,7 +290,7 @@ void PeerConnection::sendUnchoke()
 
 void PeerConnection::sendInterested()
 {
-    qDebug() << Q_FUNC_INFO;
+    //qDebug() << Q_FUNC_INFO;
     const char message[] = {0, 0, 0, 1, 2};
     write(message, sizeof(message));
 
@@ -318,8 +322,8 @@ void PeerConnection::sendHave(quint32 pieceIndex)
 
 void PeerConnection::sendRequest(quint32 index, quint32 begin, quint32 length)
 {
-    qDebug() << Q_FUNC_INFO;
-    qDebug() << index << begin << length;
+    //qDebug() << Q_FUNC_INFO;
+    //qDebug() << index << begin << length;
 
     m_lastRequestData.Index = index;
     m_lastRequestData.Begin = begin;
@@ -430,10 +434,14 @@ void PeerConnection::responseHandler()
         return;
     }
     else if ( !m_handshakeHandled ){    // Инициатор -- я
-        if ( handshakeHandler() )
+        if ( handshakeHandler() ){
+            m_timerMyKeepAlive->start();
+            m_timerSpeedTest->start();
             emit handshakeIsDone();
-        else
+        }
+        else{
             emit handshakeFailed();
+        }
 
         return;
     }
@@ -486,6 +494,10 @@ void PeerConnection::responseHandler()
         default:
             //qWarning() << Q_FUNC_INFO << "UNKNOWN PACKET TYPE" << "PACKET = " << m_incomingBuffer;
             break;
+        }
+        if ( bytesAvailable() > 0 ){
+            int a = 0;
+            a = 10;
         }
     }while( bytesAvailable() > 0 );
 }

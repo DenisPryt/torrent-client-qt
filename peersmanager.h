@@ -23,6 +23,8 @@ public:
 
 signals:
     void FetchComplited();
+    void DownloadSpeedChanged( quint64 newSpeed );
+    void UploadSpeedChanged( quint64 newSpeed );
 
 public slots:
     void StartFetchPeers();
@@ -32,6 +34,9 @@ private slots:
     void removePeer();
     void handshakedPeer();
     void newSuccessConnection( bool isPeerChoking );
+
+    void                                timerFetchHandler();
+    void                                timerUpdateSpeedHandler();
 
 private:
     RequestToServerManager             *m_requestManager;
@@ -47,8 +52,13 @@ private:
     bool                                m_fetchComplited;
 
     QTimer                             *m_timerFetch;
-    void                                timerFetchHandler();
     uint                                m_timerFetchTimeoutCount;
+
+    QTimer                             *m_timerUpdateSpeed;
+    uint                                m_timerUpdateSpeedTimeout;
+
+    quint64                             m_downloadSpeed;
+    quint64                             m_uploadSpeed;
 
 private:
     bool        isNeedMorePeers() const;

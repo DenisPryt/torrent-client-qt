@@ -7,8 +7,10 @@
 #include <QThread>
 #include <QTimer>
 
-static uint TIMEOUT_FETCH = 2500;       // 2.5 sec
+static uint TIMEOUT_FETCH = 2500;           // 2.5 sec
 static uint TIMER_FETCH_TIMEOUT_MAX = 5;
+
+static uint TIMEOUT_UPDATE_SPEED = 6000;    // 6 sec
 
 PeersManager::PeersManager(RequestToServerManager *requestManager, const QByteArray &infoHash,
                            uint piecesCount, QObject *parent)
@@ -21,6 +23,13 @@ PeersManager::PeersManager(RequestToServerManager *requestManager, const QByteAr
     m_timerFetch->setInterval( TIMEOUT_FETCH );
     m_timerFetch->setSingleShot( true );
     connect( m_timerFetch, &QTimer::timeout, this, &PeersManager::timerFetchHandler );
+
+    m_downloadSpeed = 0;
+    m_uploadSpeed   = 0;
+    m_timerUpdateSpeed = new QTimer( this );
+    m_timerUpdateSpeed->setInterval( TIMEOUT_UPDATE_SPEED );
+    m_timerUpdateSpeed->setSingleShot( false );
+    connect( m_timerUpdateSpeed, &QTimer::timeout, this, &PeersManager::timerUpdateSpeedHandler );
 
     m_requestManager = requestManager;
     m_needPeersCount = -1;
@@ -161,6 +170,22 @@ void PeersManager::timerFetchHandler()
     m_timerFetch->start();
 }
 
+void PeersManager::timerUpdateSpeedHandler()
+{
+    quint64 downloadSpeed = 0;
+    quint64 uploadSpeed = 0;
+    for ( PeerConnection *peer : m_complitedConnections ){
+        downloadSpeed   += peer->GetDownloadSpeed();
+        uploadSpeed     += peer->GetUploadSpeed();
+    }
+    if ( downloadSpeed != m_downloadSpeed ){
+        emit DownloadSpeedChanged( m_downloadSpeed = downloadSpeed );
+    }
+    if ( uploadSpeed != m_uploadSpeed ){
+        emit UploadSpeedChanged( m_uploadSpeed = uploadSpeed );
+    }
+}
+
 bool PeersManager::isNeedMorePeers() const
 {
     if ( m_fetchComplited )
@@ -180,4 +205,5 @@ void PeersManager::setFetchComplited()
     m_fetchComplited = true;
     abortAllUnknown();
     emit FetchComplited();
+    m_timerUpdateSpeed->start();
 }
