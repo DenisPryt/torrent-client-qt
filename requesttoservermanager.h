@@ -18,7 +18,7 @@ class RequestToServerManager : public QObject
     Q_OBJECT
 public:
     explicit RequestToServerManager(Torrent *torrent, QObject *parent = 0);
-    ~RequestToServerManager();
+    ~RequestToServerManager(){}
 
     const QSet<PeerInfo> &GetPeers(qint32 peersCount = -1 );
 

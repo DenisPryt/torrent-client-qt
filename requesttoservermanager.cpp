@@ -35,10 +35,6 @@ RequestToServerManager::RequestToServerManager(Torrent *torrent, QObject *parent
     } );
 }
 
-RequestToServerManager::~RequestToServerManager()
-{
-}
-
 const QSet< PeerInfo >& RequestToServerManager::GetPeers(qint32 peersCount /*= -1*/)
 {
     if ( peersCount < -1 ){
