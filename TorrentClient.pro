@@ -5,40 +5,41 @@ CONFIG += c++11
 QT += qml quick widgets network
 
 SOURCES += main.cpp \
-    torrentfileinfo.cpp \
-    torrentfileparser.cpp \
-    requesttoservermanager.cpp \
-    peerinfo.cpp \
-    torrentclient.cpp \
-    clienidgenerators.cpp \
-    peerconnection.cpp \
-    torrent.cpp \
-    mywindow.cpp \
-    torrentmodel.cpp \
+    addtorrentdialog.cpp \
+    bencodeparser.cpp \
+    connectionmanager.cpp \
+    mainwindow.cpp \
+    metainfo.cpp \
+    peerwireclient.cpp \
+    ratecontroller.cpp \
     filemanager.cpp \
-    downloader.cpp \
-    peersmanager.cpp
+    torrentclient.cpp \
+    torrentserver.cpp \
+    trackerclient.cpp \
+    torrentmodel.cpp \
+    torrentmodelitem.cpp
 
-RESOURCES += qml.qrc
+RESOURCES += qml.qrc \
+	icons.qrc
 
+FORMS += forms/addtorrentform.ui
+	
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH =
 
 # Default rules for deployment.
 include(deployment.pri)
 
-HEADERS += \
-    torrentfileinfo.h \
-    torrentfileparser.h \
-    macro.h \
-    requesttoservermanager.h \
-    peerinfo.h \
-    torrentclient.h \
-    clienidgenerators.h \
-    peerconnection.h \
-    torrent.h \
-    mywindow.h \
-    torrentmodel.h \
+HEADERS += addtorrentdialog.h \
+    bencodeparser.h \
+    connectionmanager.h \
+    mainwindow.h \
+    metainfo.h \
+    peerwireclient.h \
+    ratecontroller.h \
     filemanager.h \
-    downloader.h \
-    peersmanager.h
+    torrentclient.h \
+    torrentserver.h \
+    trackerclient.h \
+    torrentmodel.h \
+    torrentmodelitem.h
