@@ -17,7 +17,8 @@ SOURCES += main.cpp \
     torrentserver.cpp \
     trackerclient.cpp \
     torrentmodel.cpp \
-    torrentmodelitem.cpp
+    torrentmodelitem.cpp \
+    torrentserializer.cpp
 
 RESOURCES += qml.qrc \
 	icons.qrc
@@ -42,4 +43,5 @@ HEADERS += addtorrentdialog.h \
     torrentserver.h \
     trackerclient.h \
     torrentmodel.h \
-    torrentmodelitem.h
+    torrentmodelitem.h \
+    torrentserializer.h

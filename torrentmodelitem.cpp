@@ -86,6 +86,17 @@ void TorrentModelItem::start()
     m_client->start();
 }
 
+QUrl TorrentModelItem::torrentFilePath() const
+{
+    return m_torrentFilePath;
+}
+
+void TorrentModelItem::setTorrentFilePath(const QUrl &torrentFilePath)
+{
+    m_torrentFilePath = torrentFilePath;
+}
+
+
 /// private slots start
 void TorrentModelItem::updateState(TorrentClient::State newState)
 {

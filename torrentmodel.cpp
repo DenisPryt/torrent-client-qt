@@ -6,6 +6,7 @@
 
 #include "torrentmodelitem.h"
 #include "ratecontroller.h"
+#include "torrentserializer.h"
 
 TorrentModel::TorrentModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -30,7 +31,7 @@ QVariant TorrentModel::data(const QModelIndex &index, int role) const
     Q_ASSERT( item.client() != nullptr );
 
     switch ( role ){
-        case Qt::DisplayRole    :
+        case Qt::DisplayRole    : return QVariant::fromValue( m_items[ index.row() ] );
         case TorName            : return item.name();
         case TorStateStr        : return item.client()->stateString();
         case TorState           : return item.client()->state();
@@ -149,14 +150,16 @@ void TorrentModel::addTorrent(const QString &fileName, const QString &destinatio
     client->setDumpedState( resumeState );
 
     auto newItem = new TorrentModelItem( client, destinationFolder );
+    newItem->setTorrentFilePath( QUrl::fromLocalFile(fileName) );
     connect( newItem, &TorrentModelItem::dataChanged, this, &TorrentModel::itemChanged );
 
     beginInsertRows( QModelIndex(), rowCount(), rowCount() );
     m_items << newItem;
-    endInsertRows();
-    emit countChanged( rowCount() );
 
     client->start();
+
+    endInsertRows();
+    emit countChanged( rowCount() );
 }
 
 void TorrentModel::setPause(int index, bool value)

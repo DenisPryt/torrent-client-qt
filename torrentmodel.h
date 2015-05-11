@@ -58,9 +58,11 @@ public slots:
                     const QByteArray &resumeState = QByteArray());
     void addTorrent(const QString &fileName, const QString &destinationFolder,
                     const QByteArray &resumeState = QByteArray());
+
     void setPause( int index, bool value );
     void setStop ( int index );
-    void setUploadLimit( qint64 bytesPerSecond );
+
+    void setUploadLimit  ( qint64 bytesPerSecond );
     void setDownloadLimit( qint64 bytesPerSecond );
 
 private:
@@ -70,6 +72,9 @@ private:
     QList< TorrentModelItem* > m_items;
     const TorrentModelItem &at(int index ) const;
     TorrentClient *atClient( int index ) const;
+
+    qint64          m_uploadLimit;
+    qint64          m_downloadLimit;
 
 private slots:
     void itemChanged( QVector<int> roles );

@@ -50,30 +50,37 @@ class PeerWireClient;
 class RateController : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY( qint64 uploadLimit   MEMBER m_uploadLimit   NOTIFY uploadLimitChanged )
+    Q_PROPERTY( qint64 downloadLimit MEMBER m_downloadLimit NOTIFY downloadLimitChanged )
 
 public:
-    inline RateController(QObject *parent = 0)
-        : QObject(parent), transferScheduled(false) { }
+    RateController(QObject *parent = nullptr);
     static RateController *instance();
 
-    void addSocket(PeerWireClient *socket);
-    void removeSocket(PeerWireClient *socket);
+    void    addSocket(PeerWireClient *socket);
+    void    removeSocket(PeerWireClient *socket);
 
-    inline int uploadLimit() const { return upLimit; }
-    inline int downloadLimit() const { return downLimit; }
-    inline void setUploadLimit(int bytesPerSecond) { upLimit = bytesPerSecond; }
-    void setDownloadLimit(int bytesPerSecond);
+    qint64  uploadLimit() const;
+    qint64  downloadLimit() const;
+    void    setUploadLimit(qint64 bytesPerSecond);
+    void    setDownloadLimit(qint64 bytesPerSecond);
+
+signals:
+    void uploadLimitChanged  ( qint64 newLimit );
+    void downloadLimitChanged( qint64 newLimit );
 
 public slots:
     void transfer();
     void scheduleTransfer();
 
 private:
-    QTime stopWatch;
-    QSet<PeerWireClient *> sockets;
-    int upLimit;
-    int downLimit;
-    bool transferScheduled;
+    bool                    transferScheduled;
+    QTime                   stopWatch;
+
+    QSet<PeerWireClient *>  sockets;
+
+    qint64                  m_uploadLimit;
+    qint64                  m_downloadLimit;
 };
 
 #endif

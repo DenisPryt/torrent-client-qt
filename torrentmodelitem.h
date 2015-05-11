@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QVector>
+#include <QUrl>
 
 #include "torrentclient.h"
 
@@ -31,6 +32,9 @@ public:
     quint64 uploadRate() const;
     quint64 downloadRate() const;
 
+    QUrl torrentFilePath() const;
+    void setTorrentFilePath(const QUrl &torrentFilePath);
+
 public slots:
     void start();
 
@@ -40,6 +44,7 @@ private:
     QString             m_destDir;
     quint64             m_downloadRate;
     quint64             m_uploadRate;
+    QUrl                m_torrentFilePath;
 
 private slots:
     void updateState( TorrentClient::State newState );
@@ -53,5 +58,8 @@ private slots:
 private:
     void setupConnections();
 };
+
+typedef TorrentModelItem* TorrentModelItemStar;
+Q_DECLARE_METATYPE( TorrentModelItemStar )
 
 #endif // TORRENTMODELITEM_H
