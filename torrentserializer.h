@@ -5,6 +5,7 @@
 
 class TorrentModel;
 class QSettings;
+class QTimer;
 
 class TorrentSerializer : public QObject
 {
@@ -15,15 +16,28 @@ public:
 
     TorrentModel *model() const;
 
-signals:
+    /// Shoud be called after TorrentSerializer::load()
+    void startAutoSave();
+
+    int saveTimeSec() const;
+    void setSaveTimeSec(int saveTimeSec);
 
 public slots:
     void save();
     void load();
 
+private slots:
+    void onModelDestroyed();
+
 private:
     TorrentModel            *m_model;
     QSettings               *m_settings;
+    QTimer                  *m_saveTimer;
+    int                      m_saveTimeSec;
+
+    void                     initSaveTimer();
+
+static int SaveTimeSecDefault;
 };
 
 #endif // TORRENTSERIALIZER_H

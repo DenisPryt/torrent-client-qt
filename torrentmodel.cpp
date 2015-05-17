@@ -28,7 +28,10 @@ QVariant TorrentModel::data(const QModelIndex &index, int role) const
         return QVariant();
 
     auto &item = at( index.row() );
-    Q_ASSERT( item.client() != nullptr );
+    if ( item.client() == nullptr ){
+        qWarning() << Q_FUNC_INFO << "item.client() == nullptr";
+        return QVariant();
+    }
 
     switch ( role ){
         case Qt::DisplayRole    : return QVariant::fromValue( m_items[ index.row() ] );
@@ -78,6 +81,9 @@ QHash<int, QByteArray> TorrentModel::roleNames() const
 
 bool TorrentModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
+    Q_UNUSED( index );
+    Q_UNUSED( value );
+    Q_UNUSED( role );
     return false;
 }
 
@@ -112,6 +118,7 @@ bool TorrentModel::removeRows(int row, int count, const QModelIndex &parent)
 
     beginInsertRows(parent, row, row + count - 1);
     for ( int i = row; i < row + count; ++i ){
+        delete m_items[ i ];
         m_items.removeAt( i );
     }
     endInsertRows();
@@ -120,12 +127,19 @@ bool TorrentModel::removeRows(int row, int count, const QModelIndex &parent)
     return true;
 }
 
-void TorrentModel::addTorrent(const QUrl &fileUrl, const QString &destinationFolder, const QByteArray &resumeState)
+void TorrentModel::addTorrent(const QUrl &fileUrl, const QUrl &destinationFolder, const QByteArray &resumeState)
 {
-    if ( !fileUrl.isLocalFile() )
+    if ( !fileUrl.isLocalFile() ){
+        Q_ASSERT( false );
         return;
+    }
 
-    addTorrent( fileUrl.toLocalFile(), destinationFolder, resumeState );
+    if ( !destinationFolder.isLocalFile() ){
+        Q_ASSERT( false );
+        return;
+    }
+
+    addTorrent( fileUrl.toLocalFile(), destinationFolder.toLocalFile(), resumeState );
 }
 
 void TorrentModel::addTorrent(const QString &fileName, const QString &destinationFolder,
@@ -155,11 +169,10 @@ void TorrentModel::addTorrent(const QString &fileName, const QString &destinatio
 
     beginInsertRows( QModelIndex(), rowCount(), rowCount() );
     m_items << newItem;
-
-    client->start();
-
     endInsertRows();
     emit countChanged( rowCount() );
+
+    client->start();
 }
 
 void TorrentModel::setPause(int index, bool value)
@@ -169,17 +182,17 @@ void TorrentModel::setPause(int index, bool value)
 
 void TorrentModel::setStop(int index)
 {
-    atClient(index)->stop();
-}
+    beginRemoveRows( QModelIndex(), index, index );
 
-void TorrentModel::setUploadLimit(qint64 bytesPerSecond)
-{
-    RateController::instance()->setUploadLimit( bytesPerSecond );
-}
+    auto client = atClient( index );
+    //connect( client, &TorrentClient::stopped, client, &QObject::deleteLater );
+    connect( this, &QObject::destroyed, client, &QObject::deleteLater );
+    client->stop();
+    delete m_items[ index ];
+    m_items.removeAt( index );
 
-void TorrentModel::setDownloadLimit(qint64 bytesPerSecond)
-{
-    RateController::instance()->setDownloadLimit( bytesPerSecond );
+    endRemoveRows();
+    emit countChanged( rowCount() );
 }
 
 TorrentClient *TorrentModel::getTorrentClientSender(QObject *sender) const

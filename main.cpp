@@ -15,16 +15,16 @@ static QObject *RateControllerProvider(QQmlEngine *engine, QJSEngine *scriptEngi
 {
     Q_UNUSED( engine )
     Q_UNUSED( scriptEngine )
-    return RateController::instance();
+    return new RateControllerQml();
 }
 
 int main(int argc, char *argv[])
 {
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
     qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
 
     app.setOrganizationName("Pruchkovski");
-    //app.setOrganizationDomain("somecompany.com");
+    app.setOrganizationDomain("Pruchkovski.com");
     app.setApplicationName("TorrentClientQt");
 
 #if 0
@@ -33,17 +33,12 @@ int main(int argc, char *argv[])
 #else
     qmlRegisterType< TorrentModel >( "Torrent.TorrentModel", 1, 0, "TorrentModel" );
     qmlRegisterType< TorrentClient >( "Torrent.TorrentClient", 1, 0, "TorrentClient" );
-    qmlRegisterSingletonType< RateController >("Torrent.RateController", 1, 0, "RateController", RateControllerProvider);
-    RateController::instance()->setDownloadLimit( 1024 * 1024 * 10 );
-    RateController::instance()->setUploadLimit  ( 1024 * 1024 * 10 );
-    TorrentModel torrentModel;
-    TorrentSerializer serializer( &torrentModel );
-    serializer.load();
-    QTimer serializeTimer;
-    serializeTimer.setInterval( 1000 * 10 );
-    QObject::connect( &torrentModel, &TorrentModel::countChanged, &serializer, &TorrentSerializer::save );
-    QObject::connect( &serializeTimer, &QTimer::timeout, &serializer, &TorrentSerializer::save );
+    qmlRegisterSingletonType< RateControllerQml >("Torrent.RateController", 1, 0, "RateController", RateControllerProvider);
 
+    TorrentModel torrentModel;
+    TorrentSerializer   serializer( &torrentModel );
+                        serializer.load();
+                        serializer.startAutoSave();
 
     QQmlEngine engine;
     QQmlComponent component( &engine );

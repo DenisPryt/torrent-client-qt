@@ -9,60 +9,58 @@ import Material 0.1
 import Material.ListItems 0.1 as ListItem
 import Material.Extras 0.1
 
-ColumnLayout{
-
-    Label {
-        text: "Numeric Value Label + Active Focus on Press"
-        wrapMode: Text.WordWrap
-        Layout.alignment:  Qt.AlignBottom
-    }
-
-    Slider {
-        id: downloadSlider
-
-        Layout.alignment: Qt.AlignCenter
-        focus: true
-        tickmarksEnabled: true
-        numericValueLabel: true
-        stepSize: 10
-        minimumValue: 0
-        maximumValue: 1000
-        activeFocusOnPress: true
-
-        onValueChanged: {
-            RateController.downloadLimit = value * 1024
+View{
+    anchors.fill: parent
+    Column{
+        Label {
+            text: "Download speed limit"
+            wrapMode: Text.WordWrap
         }
 
-        Component.onCompleted: {
-            value = RateController.downloadLimit / 1024
-        }
-    }
+        Slider {
+            id: downloadSlider
 
-    Label {
-        text: "Numeric Value Label + Active Focus on Press"
-        wrapMode: Text.WordWrap
-        Layout.alignment:  Qt.AlignBottom
-    }
+            focus: true
+            tickmarksEnabled: true
+            numericValueLabel: true
+            stepSize: 10
+            minimumValue: 0
+            maximumValue: 1000
+            activeFocusOnPress: true
 
-    Slider {
-        id: uploadSlider
+            onValueChanged: {
+                RateController.downloadLimit = value * 1024
+            }
 
-        Layout.alignment: Qt.AlignCenter
-        focus: true
-        tickmarksEnabled: true
-        numericValueLabel: true
-        stepSize: 10
-        minimumValue: 0
-        maximumValue: 1000
-        activeFocusOnPress: true
-
-        onValueChanged: {
-            RateController.uploadLimit = value * 1024
+            Component.onCompleted: {
+                value = RateController.downloadLimit / 1024
+            }
         }
 
-        Component.onCompleted: {
-            value = RateController.uploadLimit / 1024
+        Label {
+            text: "Upload speed limit"
+            wrapMode: Text.WordWrap
         }
-    }
 
+        Slider {
+            id: uploadSlider
+
+            focus: true
+            tickmarksEnabled: true
+            numericValueLabel: true
+            stepSize: 10
+            minimumValue: 0
+            maximumValue: 1000
+            activeFocusOnPress: true
+
+            onValueChanged: {
+                RateController.uploadLimit = value * 1024
+            }
+
+            Component.onCompleted: {
+                value = RateController.uploadLimit / 1024
+            }
+        }
+
+    }
 }

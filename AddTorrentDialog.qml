@@ -22,8 +22,7 @@ Dialog{
             text: torrentFileDialog.fileUrl
             placeholderText: "Torrent file"
             floatingLabel: true
-
-            input.readOnly: true
+            readOnly: true
 
             MouseArea{
                 anchors.fill: parent
@@ -37,8 +36,7 @@ Dialog{
             text: destFolderDialog.folder
             placeholderText: "Destination folder"
             floatingLabel: true
-
-            input.readOnly: true
+            readOnly: true
 
             MouseArea{
                 anchors.fill: parent

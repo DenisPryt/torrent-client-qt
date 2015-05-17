@@ -14,7 +14,26 @@ RateController *RateController::instance()
 RateController::RateController(QObject *parent)
     : QObject( parent )
     , transferScheduled( false )
-{ }
+{
+    QSettings settings;
+    settings.beginGroup( "RateController" );
+    auto upload     = settings.value( "uploadLimit"  , 1024 * 20 ).toLongLong();
+    auto download   = settings.value( "downloadLimit", 1024 * 20 ).toLongLong();
+    settings.endGroup();
+
+    setDownloadLimit( download );
+    setUploadLimit( upload );
+}
+
+RateController::~RateController()
+{
+    QSettings settings;
+    settings.beginGroup( "RateController" );
+    settings.setValue( "uploadLimit"  , uploadLimit() );
+    settings.setValue( "downloadLimit", downloadLimit() );
+    settings.endGroup();
+    settings.sync();
+}
 
 void RateController::addSocket(PeerWireClient *socket)
 {

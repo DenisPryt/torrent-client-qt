@@ -35,7 +35,7 @@ TorrentModelItem::TorrentModelItem(TorrentClient *client, const QString &destDir
         m_name = metaInfo.fileForm() == MetaInfo::SingleFileForm ? metaInfo.singleFile().Name : metaInfo.name();
     }
 
-    m_client->setParent( this );
+    //m_client->setParent( this );
     setupConnections();
 }
 
@@ -46,8 +46,9 @@ TorrentClient *TorrentModelItem::client() const
 
 void TorrentModelItem::setClient(TorrentClient *client)
 {
+    Q_ASSERT( m_client == nullptr );
     m_client = client;
-    m_client->setParent( this );
+    //m_client->setParent( this );
 }
 
 QString TorrentModelItem::name() const
@@ -102,8 +103,8 @@ void TorrentModelItem::updateState(TorrentClient::State newState)
 {
     Q_UNUSED( newState );
     QVector<int> v( 2 );
-    v[ 0 ] = TorrentModel::TorStateStr;
-    v[ 1 ] = TorrentModel::TorState;
+                 v[ 0 ] = TorrentModel::TorStateStr;
+                 v[ 1 ] = TorrentModel::TorState;
     emit dataChanged( v );
 }
 

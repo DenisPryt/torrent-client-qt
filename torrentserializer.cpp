@@ -2,20 +2,36 @@
 
 #include <QDebug>
 #include <QSettings>
+#include <QTimer>
 
 #include "torrentmodel.h"
 #include "torrentmodelitem.h"
 
+int TorrentSerializer::SaveTimeSecDefault = 60;
+
 TorrentSerializer::TorrentSerializer(TorrentModel *model, QObject *parent)
     : QObject( parent )
     , m_model( model )
+    , m_saveTimer( nullptr )
 {
     Q_ASSERT( m_model != nullptr );
-    m_settings = new QSettings( this );
+    m_settings      = new QSettings( this );
+    m_saveTimeSec   = SaveTimeSecDefault;
+}
+
+void TorrentSerializer::initSaveTimer()
+{
+    Q_ASSERT( m_saveTimer == nullptr );
+    m_saveTimer     = new QTimer( this );
+    m_saveTimer->setInterval( m_saveTimeSec * 1000 );
+    connect( m_saveTimer, &QTimer::timeout,            this, &TorrentSerializer::save );
+    connect( m_model,     &QObject::destroyed,         this, &TorrentSerializer::onModelDestroyed );
 }
 
 TorrentSerializer::~TorrentSerializer()
 {
+    m_saveTimer->stop();
+    m_settings->sync();
 }
 
 void TorrentSerializer::save()
@@ -49,10 +65,12 @@ void TorrentSerializer::load()
         auto downloadedBytes = m_settings->value("downloadedBytes" ).toLongLong();
 
         int oldCount = m_model->rowCount();
-        m_model->addTorrent( torFilePath, destDir, dumpedState );
+        m_model->addTorrent( torFilePath.toLocalFile(), destDir, dumpedState );
         int newCount = m_model->rowCount();
-        if ( oldCount == newCount )
-            return;
+        if ( oldCount == newCount ){
+            qWarning() << Q_FUNC_INFO << "oldCount == newCount";
+            continue;
+        }
 
         auto indexLast = m_model->index( m_model->rowCount() - 1, 0 );
         auto itemLast  = m_model->data( indexLast, Qt::DisplayRole ).value< TorrentModelItemStar >();
@@ -63,9 +81,41 @@ void TorrentSerializer::load()
     m_settings->endArray();
 }
 
+void TorrentSerializer::onModelDestroyed()
+{
+    m_saveTimer->stop();
+    this->disconnect();
+
+}
+
+int TorrentSerializer::saveTimeSec() const
+{
+    return m_saveTimeSec;
+}
+
+void TorrentSerializer::setSaveTimeSec(int saveTimeSec)
+{
+    if ( m_saveTimeSec == saveTimeSec )
+        return;
+
+    m_saveTimer->setInterval( (m_saveTimeSec = saveTimeSec) * 1000 );
+}
+
+
 TorrentModel *TorrentSerializer::model() const
 {
     return m_model;
+}
+
+void TorrentSerializer::startAutoSave()
+{
+    if ( m_saveTimer == nullptr ){
+        initSaveTimer();
+        connect( m_model,     &TorrentModel::countChanged, this, &TorrentSerializer::save );
+    }
+
+    if ( !m_saveTimer->isActive() )
+        m_saveTimer->start();
 }
 
 

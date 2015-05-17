@@ -14,10 +14,21 @@ import Material.Extras 0.1
 ApplicationWindow {
     id: root
 
+    property var torrentsComponents: ["All", "Downloading", "Seeding", "Paused"]
+    property var settingsComponents: ["Speed settings"]
+    property var sections: [torrentsComponents, settingsComponents]
+    property var sectionTitles: [ "Torrents", "Settings" ]
+
+    property string selectedComponent: sections[0][0]
+
     visible: true
     clientSideDecorations: false
+
     theme {
-        accentColor: "#009688"
+        primaryColor:       Palette.colors["blue"]["500"]
+        primaryDarkColor:   Palette.colors["blue"]["700"]
+        accentColor:        Palette.colors["teal"]["500"]
+        tabHighlightColor:  "white"
     }
 
     property var speed2Name: function( bytesPerSecond ){
@@ -32,17 +43,12 @@ ApplicationWindow {
     }
 
     initialPage: Page {
+        id: page
+
         title: "Torrent Client Qt"
 
-        actionBar.maxActionCount: 4
+        actionBar.maxActionCount: navDrawer.enabled ? 3 : 4
         actions: [
-            Action{
-                id : addTorrentAction
-                name: "New Torrent"
-                iconName: "action/note_add"
-                onTriggered: addTorrentDialog.open()
-            },
-
             Action {
                 iconName: "av/play_arrow"
                 name: "Play"
@@ -73,6 +79,13 @@ ApplicationWindow {
                 onTriggered: colorPicker.show()
             },
 
+            Action{
+                id : addTorrentAction
+                name: "New Torrent"
+                iconName: "action/note_add"
+                onTriggered: addTorrentDialog.open()
+            },
+
             Action {
                 iconName: "action/language"
                 name: "Language"
@@ -83,45 +96,113 @@ ApplicationWindow {
                 name: "Settings"
             }
         ]
+        backAction: navDrawer.action
 
-        Sidebar {
-            id: sidebar
+        tabs: navDrawer.enabled ? [] : sectionTitles
 
-            property var sidebarContent: [
-                "All", "Downloading", "Seeding", "Paused", "Speed settings"
-            ]
+        NavigationDrawer {
+            id: navDrawer
 
-            property string selectedSidebarContent: sidebarContent[0]
+            enabled: page.width < Units.dp(500)
 
-            Column {
-                width: parent.width
+            Flickable {
+                anchors.fill: parent
 
-                Repeater {
-                    model: sidebar.sidebarContent
-                    delegate: ListItem.Standard {
-                        text: modelData
-                        selected: modelData == sidebar.selectedSidebarContent
-                        onClicked: sidebar.selectedSidebarContent = modelData
+                contentHeight: Math.max(content.implicitHeight, height)
+
+                Column {
+                    id: content
+                    anchors.fill: parent
+
+                    Repeater {
+                        model: sections
+
+                        delegate: Column {
+                            width: parent.width
+
+                            ListItem.Subheader {
+                                text: sectionTitles[index]
+                            }
+
+                            Repeater {
+                                model: modelData
+                                delegate: ListItem.Standard {
+                                    text: modelData
+                                    selected: modelData == root.selectedComponent
+                                    onClicked: {
+                                        root.selectedComponent = modelData
+                                        navDrawer.close()
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Loader{
-            id: pageLoader
+        TabView{
+            id: tabView
+            anchors.fill: parent
+            currentIndex: page.selectedTab
+            model: sections
 
-            anchors {
-                margins: units.dp( 6 )
-                left: sidebar.right
-                right: parent.right
-                top: parent.top
-                bottom: parent.bottom
+            delegate: Item {
+                width: tabView.width
+                height: tabView.height
+                clip: true
+
+                property string selectedComponent: modelData[0]
+
+                Sidebar {
+                    id: sidebar
+
+                    expanded: !navDrawer.enabled
+
+                    Column {
+                        width: parent.width
+
+                        Repeater {
+                            model: modelData
+                            delegate: ListItem.Standard {
+                                text: modelData
+                                selected: modelData == selectedComponent
+                                onClicked: selectedComponent = modelData
+                            }
+                        }
+                    }
+                }
+                Flickable {
+                    id: flickable
+                    anchors {
+                        left:   sidebar.right
+                        right:  parent.right
+                        top:    parent.top
+                        bottom: parent.bottom
+                    }
+                    clip: true
+                    contentHeight: Math.max(pageLoader.implicitHeight + 40, height)
+                    Loader {
+                        id: pageLoader
+                        anchors.fill: parent
+
+                        // selectedComponent will always be valid, as it defaults to the first component
+                        source: {
+                            if (navDrawer.enabled) {
+                                return root.selectedComponent === "Speed settings"
+                                       ? "SpeedLimit.qml" : "TorrentListView.qml"
+                            } else {
+                                return selectedComponent === "Speed settings"
+                                       ? "SpeedLimit.qml" : "TorrentListView.qml"
+                            }
+                        }
+                    }
+                }
+                Scrollbar {
+                    flickableItem: flickable
+                }
             }
 
-            asynchronous: true
-
-            source: sidebar.selectedSidebarContent === "Speed settings"
-                    ? "SpeedLimit.qml" : "TorrentListView.qml"
         }
 
         AddTorrentDialog{

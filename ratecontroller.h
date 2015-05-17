@@ -55,6 +55,7 @@ class RateController : public QObject
 
 public:
     RateController(QObject *parent = nullptr);
+    ~RateController();
     static RateController *instance();
 
     void    addSocket(PeerWireClient *socket);
@@ -81,6 +82,42 @@ private:
 
     qint64                  m_uploadLimit;
     qint64                  m_downloadLimit;
+};
+
+/// Wrapper for Qml Singleton using.
+/// QQmlEngine object is owner for any singletons in qml
+/// but RateController is owned by QGlobalFactory
+/// so, RateControllerQml dectructor is not destruct RateController
+class RateControllerQml : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY( qint64 uploadLimit   READ uploadLimit   WRITE setUploadLimit   NOTIFY uploadLimitChanged )
+    Q_PROPERTY( qint64 downloadLimit READ downloadLimit WRITE setDownloadLimit NOTIFY downloadLimitChanged )
+
+public:
+    RateControllerQml()
+    {
+        auto rc = RateController::instance();
+        connect( rc, &RateController::uploadLimitChanged, this, &RateControllerQml::uploadLimitChanged );
+        connect( rc, &RateController::downloadLimitChanged, this, &RateControllerQml::downloadLimitChanged );
+    }
+
+    qint64  uploadLimit() const{
+        return RateController::instance()->uploadLimit();
+    }
+    qint64  downloadLimit() const{
+        return RateController::instance()->downloadLimit();
+    }
+    void    setUploadLimit(qint64 bytesPerSecond){
+        RateController::instance()->setUploadLimit( bytesPerSecond );
+    }
+    void    setDownloadLimit(qint64 bytesPerSecond){
+        RateController::instance()->setDownloadLimit( bytesPerSecond );
+    }
+
+signals:
+    void uploadLimitChanged  ( qint64 newLimit );
+    void downloadLimitChanged( qint64 newLimit );
 };
 
 #endif
